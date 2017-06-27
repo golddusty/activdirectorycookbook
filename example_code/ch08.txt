@@ -1,0 +1,839 @@
+chapter: Computer Objects
+==================
+> dsadd computer "<ComputerDN>" -desc "<Description>"
+    
+    
+====================================
+> admod -b "<ComputerDN>" objectclass::computer
+  sAMAccountName::<ComputerName>$ userAccountControl::4096
+  description::"<Description>" -add
+    
+    
+====================================
+' This code creates a computer object.
+' ------ SCRIPT CONFIGURATION -------
+strBase = "<ParentComputerDN>" ' e.g. cn=Computers,dc=adatum,dc=com
+strComp = "<ComputerName>"     ' e.g. joe-xp
+strDescr = "<Description>"     ' e.g. Joe's Windows XP workstation
+' ------ END CONFIGURATION ---------
+
+' ADS_USER_FLAG_ENUM
+Const ADS_UF_WORKSTATION_TRUST_ACCOUNT = &h1000 ' 4096
+
+set objCont = GetObject("LDAP://" & strBase)
+set objComp = objCont.Create("computer", "cn=" & strComp)
+objComp.Put "sAMAccountName", strComp & "$"
+objComp.Put "description", strDesc
+objComp.Put "userAccountControl", ADS_UF_WORKSTATION_TRUST_ACCOUNT
+objComp.SetInfo
+Wscript.Echo "Computer account for " & strComp & " created"
+    
+    
+====================================
+new-QADObject -ParentContainer <OU DN> -type 'computer' -name '<ComputerName>' 
+-ObjectAttributes @{samAccountName='<ComputerName>$';userAccountControl='4096'}
+    
+    
+====================================
+set-variable ADS_UF_WORKSTATION_TRUST_ACCOUNT 0x1000 -option constant
+
+$objParent = [ADSI] "LDAP://<Parent OU DN>"
+$objComp = $objParent.Create("computer", "cn=<ComputerName>")
+$objComp.Put("samAccountName", "<ComputerName>$")
+$objComp.Put("userAccountControl", ADS_UF_WORKSTATION_TRUST_ACCOUNT)
+$objComp.SetInfo()
+    
+    
+====================================
+> dsadd computer <ComputerDN>
+> dsacls <ComputerDN> /G <UserOrGroup>:CALCGRSDDTRC;;
+> dsacls <ComputerDN> /G <UserOrGroup>:WP;description;
+> dsacls <ComputerDN> /G <UserOrGroup>:WP;sAMAccountName;
+> dsacls <ComputerDN> /G <UserOrGroup>:WP;displayName;
+> dsacls <ComputerDN> /G <UserOrGroup>:WP;userAccountControl;
+> dsacls <ComputerDN> /G <UserOrGroup>:WS;"Validated write to service principal\
+name";
+> dsacls <ComputerDN> /G <UserOrGroup>:WS;"Validated write to DNS host name";
+    
+    
+====================================
+' This code creates a computer object and grants a 
+user/group rights over it.
+' ------ SCRIPT CONFIGURATION -------
+strComputer = "<ComputerName>"   ' e.g. joe-xp
+strUser     = "<UserOrGroup>"    ' e.g. joe@adatum.com or ADATUM\joe
+strDescr    = "<ComputerDescr>"  ' e.g. Joe's workstation
+strDomain   = "<ComputerDomain>" ' e.g. adatum.com
+' ------ END CONFIGURATION ---------
+
+'############################
+' Constants
+'############################
+
+' ADS_USER_FLAG_ENUM
+Const ADS_UF_PASSWD_NOTREQD             = &h0020
+Const ADS_UF_WORKSTATION_TRUST_ACCOUNT  = &h1000
+
+' ADS_ACETYPE_ENUM
+Const ADS_ACETYPE_ACCESS_ALLOWED        = &h0
+Const ADS_ACETYPE_ACCESS_ALLOWED_OBJECT = &h5
+
+' ADS_FLAGTYPE_ENUM
+Const ADS_FLAG_OBJECT_TYPE_PRESENT = &h1
+
+' ADS_RIGHTS_ENUM
+Const ADS_RIGHT_DS_SELF           = &h8
+Const ADS_RIGHT_DS_WRITE_PROP     = &h20
+Const ADS_RIGHT_DS_CONTROL_ACCESS = &h100
+Const ADS_RIGHT_ACTRL_DS_LIST     = &h4
+Const ADS_RIGHT_GENERIC_READ      = &h80000000
+Const ADS_RIGHT_DELETE            = &h10000
+Const ADS_RIGHT_DS_DELETE_TREE    = &h40
+Const ADS_RIGHT_READ_CONTROL      = &h20000
+
+' schemaIDGUID values
+Const DISPLAY_NAME     = "{bf967953-0de6-11d0-a285-00aa003049e2}"
+Const SAM_ACCOUNT_NAME = "{3e0abfd0-126a-11d0-a060-00aa006c33ed}"
+Const DESCRIPTION      = "{bf967950-0de6-11d0-a285-00aa003049e2}"
+
+' controlAccessRight rightsGUID values
+Const USER_LOGON_INFORMATION    = "{5f202010-79a5-11d0-9020-00c04fc2d4cf}"
+Const USER_ACCOUNT_RESTRICTIONS = "{4C164200-20C0-11D0-A768-00AA006E0529}"
+Const VALIDATED_DNS_HOST_NAME   = "{72E39547-7B18-11D1-ADEF-00C04FD8D5CD}"
+Const VALIDATED_SPN             = "{F3A64788-5306-11D1-A9C5-0000F80367C1}"
+
+'############################
+' Create Computer
+'############################
+
+set objRootDSE = GetObject("LDAP://" & strDomain & "/RootDSE")
+set objContainer = GetObject("LDAP://cn=Computers," & _
+                             objRootDSE.Get("defaultNamingContext"))
+set objComputer = objContainer.Create("Computer", "cn=" & strComputer)
+
+objComputer.Put "sAMAccountName", strComputer & "$"
+objComputer.Put "userAccountControl", _
+                 ADS_UF_PASSWD_NOTREQD Or ADS_UF_WORKSTATION_TRUST_ACCOUNT
+objComputer.Put "description", strDescr
+objComputer.SetInfo
+
+'############################
+' Create ACL
+'############################
+
+set objSD = objComputer.Get("nTSecurityDescriptor")
+set objDACL = objSD.DiscretionaryAcl
+
+' Special: Control Rights, List Children
+'          Generic Read, Delete,
+'          Delete Subtree, Read Permission
+set objACE1 = CreateObject("AccessControlEntry")
+objACE1.Trustee    = strUser
+objACE1.AccessMask = ADS_RIGHT_DS_CONTROL_ACCESS Or _
+                     ADS_RIGHT_ACTRL_DS_LIST Or _
+                     ADS_RIGHT_GENERIC_READ Or _
+                     ADS_RIGHT_DELETE Or _
+                     ADS_RIGHT_DS_DELETE_TREE Or ADS_RIGHT_READ_CONTROL
+objACE1.AceFlags   = 0
+objACE1.AceType    = ADS_ACETYPE_ACCESS_ALLOWED
+
+' Write Property: description
+set objACE2 = CreateObject("AccessControlEntry")
+objACE2.Trustee    = strUser
+objACE2.AccessMask = ADS_RIGHT_DS_WRITE_PROP
+objACE2.AceFlags   = 0
+objACE2.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE2.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+objACE2.ObjectType = DESCRIPTION
+
+' Write Property: sAMAccountName
+set objACE3 = CreateObject("AccessControlEntry")
+objACE3.Trustee    = strUser
+objACE3.AccessMask = ADS_RIGHT_DS_WRITE_PROP
+objACE3.AceFlags   = 0
+objACE3.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE3.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+objACE3.ObjectType = SAM_ACCOUNT_NAME
+
+' Write Property: displayName
+set objACE4 = CreateObject("AccessControlEntry")
+objACE4.Trustee    = strUser
+objACE4.AccessMask = ADS_RIGHT_DS_WRITE_PROP
+objACE4.AceFlags   = 0
+objACE4.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE4.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+objACE4.ObjectType = DISPLAY_NAME
+
+' Write Property: Logon Information
+
+set objACE5 = CreateObject("AccessControlEntry")
+objACE5.Trustee    = strUser
+objACE5.AccessMask = ADS_RIGHT_DS_WRITE_PROP
+objACE5.AceFlags   = 0
+objACE5.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+objACE5.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE5.ObjectType = USER_LOGON_INFORMATION
+
+' Write Property: Account Restrictions
+set objACE6 = CreateObject("AccessControlEntry")
+objACE6.Trustee    = strUser
+objACE6.AccessMask = ADS_RIGHT_DS_WRITE_PROP
+objACE6.AceFlags   = 0
+objACE6.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+objACE6.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE6.ObjectType = USER_ACCOUNT_RESTRICTIONS
+
+' Write Self: Validated SPN
+set objACE7 = CreateObject("AccessControlEntry")
+objACE7.Trustee    = strUser
+objACE7.AccessMask = ADS_RIGHT_DS_SELF
+objACE7.AceFlags   = 0
+objACE7.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+objACE7.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE7.ObjectType = VALIDATED_SPN
+
+' Write Self: Validated DNS Host Name
+set objACE8 = CreateObject("AccessControlEntry")
+objACE8.Trustee    = strUser
+objACE8.AccessMask = ADS_RIGHT_DS_SELF
+objACE8.AceFlags   = 0
+objACE8.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+objACE8.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE8.ObjectType = VALIDATED_DNS_HOST_NAME
+
+objDACL.AddAce objACE1
+objDACL.AddAce objACE2
+objDACL.AddAce objACE3
+objDACL.AddAce objACE4
+objDACL.AddAce objACE5
+objDACL.AddAce objACE6
+objDACL.AddAce objACE7
+objDACL.AddAce objACE8
+
+'############################
+' Set ACL
+'############################
+objSD.DiscretionaryAcl = objDACL
+objComputer.Put "nTSecurityDescriptor", objSD
+objComputer.SetInfo
+WScript.Echo "Successfully created " & strComputer & _
+             " and gave rights to " & strUser
+    
+    
+====================================
+> dsrm "<Computer DN>"
+    
+    
+====================================
+> admod -b "<Computer DN>" -del
+    
+    
+====================================
+strCompDN = "<Computer DN>"
+set objComp = GetObject("LDAP://" & strCompDN)
+objComp.DeleteObject(0)
+    
+    
+====================================
+remove-QADObject -identity <Computer DN>
+    
+    
+====================================
+$obj = [ADSI] "LDAP://<Computer DN>"
+$obj.DeleteObject(0)
+    
+    
+====================================
+> netdom join <ComputerName> /Domain <DomainName> /UserD <DomainUserUPN>
+/PasswordD * /UserO <ComputerAdminUser> /PasswordO * /Reboot
+    
+    
+====================================
+' This code joins a computer to a domain ' ------ SCRIPT CONFIGURATION ------
+strComputer     = "<ComputerName>"      ' e.g. joe-xp
+strDomain       = "<DomainName>"        ' e.g. adatum.com
+strDomainUser   = "<DomainUserUPN>"     ' e.g. administrator@adatum.com
+strDomainPasswd = "<DomainUserPasswd>"
+strLocalUser    = "<ComputerAdminUser>" ' e.g. administrator
+strLocalPasswd  = "<ComputerUserPasswd>"
+' ------ END CONFIGURATION ---------
+
+'########################
+' Constants
+'########################
+Const JOIN_DOMAIN             = 1
+Const ACCT_CREATE             = 2
+Const ACCT_DELETE             = 4
+Const WIN9X_UPGRADE           = 16
+Const DOMAIN_JOIN_IF_JOINED   = 32
+Const JOIN_UNSECURE           = 64
+Const MACHINE_PASSWORD_PASSED = 128
+Const DEFERRED_SPN_SET        = 256
+Const INSTALL_INVOCATION      = 262144
+
+'###########################
+' Connect to Computer
+'###########################
+set objWMILocator = CreateObject("WbemScripting.SWbemLocator")
+objWMILocator.Security_.AuthenticationLevel = 6
+set objWMIComputer = objWMILocator.ConnectServer(strComputer,  _
+                                                 "root\cimv2", _
+                                                 strLocalUser, _
+                                                 strLocalPasswd)
+set objWMIComputerSystem = objWMIComputer.Get( _
+                               "Win32_ComputerSystem.Name='" & _
+                               strComputer & "'")
+
+'###########################
+' Join Computer
+'###########################
+rc = objWMIComputerSystem.JoinDomainOrWorkGroup(strDomain, _
+                                                strDomainPasswd, _
+                                                strDomainUser, _
+                                                vbNullString, _
+                                                JOIN_DOMAIN)
+if rc <> 0 then
+    WScript.Echo "Join failed with error: " & rc
+else
+    WScript.Echo "Successfully joined " & strComputer & " to " & strDomain
+end if
+    
+    
+====================================
+> dsmove "<ComputerDN>" -newparent "<NewParentDN>"
+    
+    
+====================================
+> admod -b "<ComputerDN>" -move "<NewParentDN>"
+    
+    
+====================================
+' This code moves a computer
+' to the specified container/OU.
+' ------ SCRIPT CONFIGURATION -------
+strCompDN = "<ComputerDN>" ' e.g. cn=joe-xp,cn=Users,dc=adatum,dc=com
+strOUDN = "<NewParentDN>"  ' e.g. ou=workstations,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+set objComp = GetObject("LDAP://" & strCompDN)
+set objOU = GetObject("LDAP://" & strOUDN)
+objOU.MoveHere objComp.ADsPath, objComp.Name
+    
+    
+====================================
+move-QADObject -identity <ComputerDN> -newparent <NewParentDN>
+    
+    
+====================================
+$obj = [ADSI] "LDAP://<Computer DN>"
+$newParent = [ADSI] "LDAP://<New Parent DN>"
+$obj.psbase.MoveTo($newParent)
+    
+    
+====================================
+ADMT COMPUTER /N "FIN101-A" "FIN101-A" /SD:"emea.adatum.com"
+/TD:"emea.adatum.com" /TO:"Finance" /RDL:2
+    
+    
+====================================
+set objObject = GetObject("LDAP://<TargetDC>/<TargetParentDN>")
+objObject.MoveHere "LDAP://<SourceDC>/<SourceDN>", vbNullString
+    
+    
+====================================
+> netdom renamecomputer <ComputerName> /NewName <NewComputerName>
+/UserD<DomainUserUPN> /PasswordD * /UserO <ComputerAdminUser> /PasswordO * /Reboot
+    
+    
+====================================
+' This code renames a computer in AD and on the host itself.
+' ------ SCRIPT CONFIGURATION -------
+strComputer     = "<ComputerName>"      ' e.g. joe-xp
+strNewComputer  = "<NewComputerName>"   ' e.g. joe-pc
+strDomainUser   = "<DomainUserUPN>"     ' e.g. administrator@adatum.com
+strDomainPasswd = "<DomainUserPasswd>"
+strLocalUser    = "<ComputerAdminUser>" 'e.g. joe-xp\administrator
+strLocalPasswd  = "<ComputerAdminPasswd>"
+' ------ END CONFIGURATION ---------
+
+'###########################
+' Connect to Computer
+'###########################
+set objWMILocator = CreateObject("WbemScripting.SWbemLocator")
+objWMILocator.Security_.AuthenticationLevel = 6
+set objWMIComputer = objWMILocator.ConnectServer(strComputer,  _
+                                                 "root\cimv2", _
+                                                 strLocalUser, _
+                                                  strLocalPasswd)
+set objWMIComputerSystem = objWMIComputer.Get( _
+                               "Win32_ComputerSystem.Name='" & _
+                               strComputer & "'")
+'###########################
+' Rename Computer
+'###########################
+rc = objWMIComputerSystem.Rename(strNewComputer, _
+                                 strDomainPasswd, _
+                                 strDomainUser)
+if rc <> 0 then
+    WScript.Echo "Rename failed with error: " & rc
+else
+    WScript.Echo "Successfully renamed " & strComputer & " to " & _
+                 strNewComputer
+end if
+
+WScript.Echo "Rebooting ... "
+set objWSHShell = WScript.CreateObject("WScript.Shell")
+objWSHShell.Run "rundll32 shell32.dll,SHExitWindowsEx 2"
+    
+    
+====================================
+$objComp = get-WMIObject Win32_ComputerSystem -Comp <ComputerName>
+$objComp.Rename("<NewComputerName>")
+$os = get-wmiobject win32_operatingsystem -comp <ComputerName>
+$os.Reboot()
+    
+    
+====================================
+> admod -b "<GroupDN>" member:+:"<ComputerDN>"
+    
+    
+====================================
+' This code adds and removes a computer object from a group.
+' ------ SCRIPT CONFIGURATION ------
+strGroupDN = "<GroupDN>" ' e.g. cn=SalesGroup,ou=Groups,dc=adatum,dc=com
+strComputerDN = "<ComputerDN>" ' e.g. cn=Fin101,cn=Computers,dc=adatum,dc=com
+' ------ END CONFIGURATION ---------
+
+set objGroup = GetObject("LDAP://" & strGroupDN)
+' Add a member
+objGroup.Add("LDAP://" & strComputerDN)
+
+' Remove a member
+objGroup.Remove("LDAP://" & strComputerDN)
+    
+    
+====================================
+$objComp = get-QADComputer -identity "<ComputerDN>"
+add-QADGroupMember -identity "<GroupDN>" -member $objComputer
+    
+    
+====================================
+$objGroup = [ADSI]("LDAP://" + "<Group DN>")
+$objGroup.Add("LDAP://" + "<Computer DN>")
+#
+# to remove a computer from the group instead
+#
+$objGroup.Remove("LDAP://" + "<Computer DN>")
+    
+    
+====================================
+> nltest /server:<ComputerName> /sc_query:<DomainName>
+    
+    
+====================================
+Flags: 30 HAS_IP HAS_TIMESERV
+Trusted DC Name \\dc1.adatum.com
+Trusted DC Connection Status Status = 0 0x0 NERR_Success
+The command completed successfully
+    
+    
+====================================
+Flags: 0
+Trusted DC Name
+Trusted DC Connection Status Status = 1311 0x51f ERROR_NO_LOGON_SERVERS
+The command completed successfully
+    
+    
+====================================
+> dsmod computer "<ComputerDN>" -reset
+    
+    
+====================================
+> netdom reset <ComputerName> /Domain <DomainName> /UserO <UserUPN> /PasswordO *
+    
+    
+====================================
+> nltest /sc_reset:<DomainName>\<DCName>
+    
+    
+====================================
+' This resets an existing computer object's password to initial default.
+' You'll need to rejoin the computer after doing this.
+set objComputer = GetObject("LDAP://<ComputerDN>")
+objComputer.SetPassword "<ComputerName>"
+    
+    
+====================================
+> dsquery computer forestroot -inactive <NumWeeks>
+    
+    
+====================================
+> dsquery computer domainroot -d <DomainName> -inactive <NumWeeks>
+    
+    
+====================================
+> dsquery computer ou=MyComputers,dc=adatum,dc=com -inactive <NumWeeks>
+    
+    
+====================================
+> oldcmp -report
+    
+    
+====================================
+> for /F "usebackq" %i in (`dsquery computer domainroot -inactive 12`) do dsrm %i
+    
+    
+====================================
+dn: <DomainDN>
+changetype: modify
+replace: ms-DS-MachineAccountQuota
+ms-DS-MachineAccountQuota: <Quota>
+-
+    
+    
+====================================
+> ldifde -v -i -f change_computer_quota.ldf
+    
+    
+====================================
+> admod -b <DomainDN> ms-DS-MachineAccountQuota::<Quota>
+    
+    
+====================================
+' This code sets the
+' machine account quota for a domain.
+' ------ SCRIPT CONFIGURATION ------
+intQuota = <Quota>
+strDomain = "<DomainDNSName>" ' e.g. emea.adatum.com
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strDomain & "/RootDSE")
+set objDomain = GetObject("LDAP://" & objRootDSE.Get("defaultNamingContext"))
+objDomain.Put "
+ms-DS-MachineAccountQuota", intQuota
+objDomain.SetInfo
+WScript.Echo "Updated user quota to " & intQuota
+    
+    
+====================================
+set-QADObject '<DomainDN>' -ObjectAttributes 
+@('ms-DS-MachineAccountQuota'='<NewQuota>')
+
+$objDom = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$objDom.Put("ms-DS-MachineAccountQuota","<NewQuota>")
+$objDom.SetInfo()
+    
+    
+====================================
+dn: <ComputerDN>
+changetype: modify
+add: <AttributeName>
+<AttributeName>: <AttributeValue>
+-
+    
+    
+====================================
+> ldifde -v -i -f modify_object.ldf
+    
+    
+====================================
+> admod -b <ComputerDN> <attribute>:<operation>:<value>
+    
+    
+====================================
+> admod -b cn="Fin101,cn=Computers,dc=adatum,dc=com" location::"Berlin, Germany"
+    
+    
+====================================
+' The following code will modify the location attribute
+' of a computer object.
+
+Set objComputer = GetObject ("LDAP://<ComputerDN>")
+
+objComputer.Put "Location" , "<NewLocationValue>"
+objComputer.SetInfo
+    
+    
+====================================
+set-QADObject -identity <ComputerDN> -ObjectAttributes
+@{'<attribute1>'='<Value>';'<attribute2>'='<Value>'...}
+
+$objComp = [ADSI] "LDAP://<ComputerDN>"
+$objComp.Put("<attribute>","<Value>")
+$objComp.SetInfo()
+    
+    
+====================================
+(&(objectclass=computer)(objectcategory=computer)(operatingSystem=Windows XP
+Professional))
+    
+    
+====================================
+> dsquery * <DomainDN> -scope subtree -attr "*" -filter "(&(objectclass=
+computer)(objectcategory=computer)(operatingSystem=Windows Server 2003))"
+    
+    
+====================================
+> adfind -b <DomainDN> -f  "(&(objectcategory=computer)
+  (operatingSystem=Windows Server 2003))"
+    
+    
+====================================
+' This code searches for computer objects that have Service Pack 1 installed.
+' ------ SCRIPT CONFIGURATION ------
+strBase = "<LDAP://" & "<DomainDN>" & ">;"
+' ------ END CONFIGURATION --------
+
+strFilter = "(&(objectclass=computer)(objectcategory=computer)" & _
+            "(operatingSystemServicePack=Service Pack 1));"
+strAttrs  = "cn,operatingSystem,operatingSystemVersion," & _
+            " operatingSystemServicePack;"
+strScope  = "subtree"
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+Set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+while Not objRS.EOF
+    Wscript.Echo objRS.Fields(0).Value
+    Wscript.Echo objRS.Fields(1).Value
+    Wscript.Echo objRS.Fields(2).Value
+    Wscript.Echo objRS.Fields(3).Value
+    Wscript.Echo objRS.Fields(4).Value
+    WScript.Echo
+    objRS.MoveNext
+wend
+    
+    
+====================================
+get-QADComputer -OSVersion '<Operating System>' -OSServicePack '<ServicePackLevel>'
+    
+    
+====================================
+$strQuery = "(&(objectcategory=computer)(operatingSystemServicePack=Service Pack 1))"
+$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objDomain
+$objSearcher.Filter = $strQuery
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+<WKGUID=aa312825768811d1aded00c04fd8d5cd,<DomainDN>>
+    
+    
+====================================
+' This code illustrates how to bind to the default computers container.
+' ------ SCRIPT CONFIGURATION ------
+strDomain = "<DomainDNSName>" ' e.g. apac.adatum.com
+' ------ END CONFIGURATION --------
+
+' Computer GUID as defined in ntdsapi.h
+Const ADS_GUID_COMPUTRS_CONTAINER = "aa312825768811d1aded00c04fd8d5cd"
+
+set objRootDSE = GetObject("LDAP://" & strDomain & "/RootDSE")
+set objCompContainer = GetObject("LDAP://<WKGUID=" & _
+                             ADS_GUID_COMPUTRS_CONTAINER & "," & _
+                             objRootDSE.Get("defaultNamingContext") & ">" )
+WScript.Echo objCompContainer.Get("distinguishedName")
+    
+    
+====================================
+$obj = [ADSI] "LDAP://<WKGUID= aa312825768811d1aded00c04fd8d5cd>,<Domain DN>>"
+#
+# or .....
+#
+$strDomain = "<DomainDNSName>" ' e.g. apac.adatum.com
+
+Set-Variable ADS_GUID_COMPUTERS_CONTAINER aa312825768811d1aded00c04fd8d5cd
+
+$rootDSE = [ADSI]("LDAP://" + $strDomain + "/RootDSE")
+$container = [ADSI]("LDAP://<WKGUID=" + $ADS_GUID_COMPUTERS_CONTAINER + "," +
+                   $rootDSE.defaultNamingContext + ">")
+$container.distinguishedName
+    
+    
+====================================
+aa312825768811d1aded00c04fd8d5cd
+    
+    
+====================================
+LDAP://<WKGUID=aa312825768811d1aded00c04fd8d5cd,dc=apac,dc=adatum,dc=com>
+    
+    
+====================================
+B:32:AA312825768811D1ADED00C04FD8D5CD:CN=Computers,DC=adatum,DC=com;
+B:32:F4BE92A4C777485E878E9421D53087DB:CN=Microsoft,CN=Program
+Data,DC=adatum,DC=com;
+B:32:09460C08AE1E4A4EA0F64AEE7DAA1E5A:CN=Program Data,DC=adatum,DC=com;
+B:32:22B70C67D56E4EFB91E9300FCA3DC1AA:
+CN=ForeignSecurityPrincipals,DC=adatum,DC=com;
+B:32:18E2EA80684F11D2B9AA00C04F79F805:CN=Deleted Objects,DC=adatum,DC=com;
+B:32:2FBAC1870ADE11D297C400C04FD8D5CD:CN=Infrastructure,DC=adatum,DC=com;
+B:32:AB8153B7768811D1ADED00C04FD8D5CD:CN=LostAndFound,DC=adatum,DC=com;
+B:32:AB1D30F3768811D1ADED00C04FD8D5CD:CN=System,DC=adatum,DC=com;
+B:32:A361B2FFFFD211D1AA4B00C04FD7D83A:OU=Domain Controllers,DC=adatum,DC=com;
+B:32:A9D1CA15768811D1ADED00C04FD8D5CD:CN=Users,DC=adatum,DC=com;
+    
+    
+====================================
+B:NumberofBytes:GUID:DistinguishedName
+    
+    
+====================================
+B:32:AA312825768811D1ADED00C04FD8D5CD:CN=Computers,<DomainDN>
+    
+    
+====================================
+B:32:AA312825768811D1ADED00C04FD8D5CD:<NewComputersParent>,<DomainDN>
+    
+    
+====================================
+> redircmp "<NewParentDN>"
+    
+    
+====================================
+' This code changes the
+' default computers container.
+' ------ SCRIPT CONFIGURATION ------
+strNewComputersParent = "<NewComputersParent>" ' e.g. OU=Adatum Computers
+strDomain             = "<DomainDNSName>"      ' e.g. adatum.com
+' ------ END CONFIGURATION ---------
+
+Const COMPUTER_WKGUID = "B:32:AA312825768811D1ADED00C04FD8D5CD:"
+' ADS_PROPERTY_OPERATION_ENUM
+Const ADS_PROPERTY_APPEND = 3
+Const ADS_PROPERTY_DELETE = 4
+
+set objRootDSE = GetObject("LDAP://" & strDomain & "/RootDSE")
+set objDomain = GetObject("LDAP://" & objRootDSE.Get("
+defaultNamingContext"))
+set objCompWK = GetObject("LDAP://" & _
+                           "<WKGUID=AA312825768811D1ADED00C04FD8D5CD," & _
+                           objRootDSE.Get("defaultNamingContext") & ">")
+
+objDomain.PutEx ADS_PROPERTY_DELETE, "wellKnownObjects", _
+                Array( COMPUTER_WKGUID & objCompWK.Get("distinguishedName"))
+objDomain.PutEx ADS_PROPERTY_APPEND, "wellKnownObjects", _
+                Array( COMPUTER_WKGUID & strNewComputersParent & "," &
+                       objRootDSE.Get("defaultNamingContext") )
+objDomain.SetInfo
+WScript.Echo "New default Computers container set to " & _
+              strNewComputersParent
+    
+    
+====================================
+> adfind -default -f objectCategory=computer
+    
+    
+====================================
+' The following script will enumerate all computer accounts
+' within an Active Directory domain.
+
+Const ADS_SCOPE_SUBTREE = 2
+strDomain = "<DomainDN>"
+
+Set objConnection = CreateObject("ADODB.Connection")
+Set objCommand = CreateObject("ADODB.Command")
+objConnection.Provider = "ADsDSOObject"
+objConnection.Open "Active Directory Provider"
+
+Set objCOmmand.ActiveConnection = objConnection
+objCommand.CommandText = _
+    "Select Name, Location from 'LDAP://" & strDomain & "' " _
+        & "Where objectCategory='computer'"
+objCommand.Properties("Page Size") = 1000
+objCommand.Properties("Searchscope") = ADS_SCOPE_SUBTREE
+Set objRecordSet = objCommand.Execute
+objRecordSet.MoveFirst
+
+Do Until objRecordSet.EOF
+    Wscript.Echo "Computer Name: " & objRecordSet.Fields("Name").Value
+    Wscript.Echo "Location: " & objRecordSet.Fields("Location").Value
+    objRecordSet.MoveNext
+Loop
+    
+    
+====================================
+get-QADObject -ldapfilter 'objectclass=computer'
+
+$strCategory = "computer"
+$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objDomain
+$objSearcher.Filter = "(objectCategory=$strCategory)"
+$objSearcher.FindAll()
+    
+    
+====================================
+> wmic computersystem get domainrole
+    
+    
+====================================
+DomainRole
+5
+    
+    
+====================================
+' The following code will return the domain role of the
+' local computer.
+strComputer = "."
+Set objWMIService = GetObject("winmgmts:" _
+    & "{impersonationLevel=impersonate}!\\" _
+    & strComputer & "\root\cimv2")
+Set colComputers = objWMIService.ExecQuery _
+    ("Select DomainRole from Win32_ComputerSystem")
+For Each objComputer in colComputers
+    Select Case objComputer.DomainRole
+        Case 0
+            strComputerRole = "Standalone Workstation"
+        Case 1
+            strComputerRole = "Member Workstation"
+        Case 2
+            strComputerRole = "Standalone Server"
+        Case 3
+            strComputerRole = "Member Server"
+        Case 4
+            strComputerRole = "Backup Domain Controller"
+        Case 5
+            strComputerRole = "Primary Domain Controller"
+    End Select
+    Wscript.Echo strComputerRole
+Next
+    
+    
+====================================
+dsacls <Computer DN> /d EVERYONE:SDDT
+    
+    
+====================================
+Add-QADPermission -identity <Computer DN> -Account 'EVERYONE' -Rights
+'Delete,DeleteTree' -ApplyTo 'ThisObjectOnly'
+    
+    
+====================================
+Add-ADPermission -Identity <Computer Name> -User EVERYONE
+    -AccessRights Delete,DeleteTree -Deny $true
+    
+    
+====================================
+> adfind -b <ComputerDN> msDS-RevealedDSAs
+    
+    
+====================================
+' ------ SCRIPT CONFIGURATION ------
+stCompDN = "<ComputerDN>" ' e.g. cn=rallen,ou=Sales,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+set objComp = GetObject("LDAP://" & strCompDN)
+strRODCs = objComp.Get("msDS-RevealedDSAs")
+WScript.Echo strRODCs
+    
+    
+====================================
+> $objComp = [ADSI] "LDAP://<CompDN>"
+> $objComp.psbase.InvokeGet("msDS-RevealedDSAs")
+    
+    
+==================

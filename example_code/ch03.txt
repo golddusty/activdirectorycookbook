@@ -1,0 +1,859 @@
+chapter: Domain Controllers, Global Catalogs, and FSMOs
+==================
+cn=NTDS Settings,cn=DC1,cn=RTP,cn=sites,cn=configuration,dc=adatum,dc=com
+    
+    
+====================================
+servermanagercmd.exe -install ADDS-Domain-Controller
+    
+    
+====================================
+admod -b <DN of RODC> msDS-RevealOnDemandGroup:+:<DN of User/Group>
+    
+    
+====================================
+admod -b <DN of RODC> msDS-NeverRevealGroup:-:<DN of User/Group>
+    
+    
+====================================
+admod -b <DN of RODC> msDS-NeverRevealGroup:+:<DN of User/Group>
+    
+    
+====================================
+Const ADS_PROPERTY_APPEND = 3
+Set objRODC = GetObject("LDAP://<RODC DN>")
+objRODC.PutEx ADS_PROPERTY_DELETE, "msDS-RevealOnDemandGroup",
+Array("<DN of User/group>")
+    
+    
+====================================
+dcpromo /adv
+    
+    
+====================================
+> dcpromo /answer:<path_to_answer_file>
+    
+    
+====================================
+[GUIRunOnce]
+"dcpromo /answer:%systemroot%\system32\$winnt$.inf"
+    
+    
+====================================
+[DCINSTALL]
+UserName=administrator
+Password=AdatumAdminPassword
+UserDomain=adatum.com
+DatabasePath=%systemroot%\ntds
+LogPath=%systemroot%\ntds
+SYSVOLPath=%systemroot%\sysvol
+SafeModeAdminPassword=DSrestoreModePassword
+CriticalReplicationOnly=no
+ReplicaOrNewDomain=Replica
+ReplicaDomainDNSName=adatum.com
+RebootOnSuccess=yes
+CreateOrJoin=Join
+    
+    
+====================================
+[DCInstall]
+CreateOrJoin = Create
+AllowAnonymousAccess = No
+AutoConfigDNS = Yes
+    
+    
+====================================
+dcpromoui D38.A65 0000 opening log file C:\WINDOWS\debug\dcpromoui.log
+dcpromoui D38.A65 0001 C:\WINDOWS\system32\dcpromo.exe
+dcpromoui D38.A65 0002 file timestamp 11/19/2005 07:02:35.000
+dcpromoui D38.A65 0003 local time 11/19/2005 07:03:45.406
+dcpromoui D38.A65 0004 running Windows NT 5.2 build 3718
+(BuildLab:3718.dnsrv.021114-1947) i386
+...
+dcpromoui D38.A65 00E3 Enter ControlSubclasser::UnhookWindowProc
+dcpromoui D38.A65 00E4 exitCode = 0
+dcpromoui D38.A65 00E5 closing log
+    
+    
+====================================
+> dcdiag /test:dcpromo /DnsDomain:adatum.com /ReplicaDC /test:RegisterInDNS
+    
+    
+====================================
+> netdiag /test:dns
+> netdiag /test:member
+> netdiag /test:dsgetdc
+> dcdiag  /test:replications
+> dcdiag  /s:<DCName> /test:knowsofroleholders
+> dcdiag  /s:<DCName> /test:fsmocheck
+    
+    
+====================================
+> ntdsutil "meta clean" conn "co to ser <DomainControllerName>"q "s o t" "l d"
+Found 2 domain(s)
+0 - DC=adatum,DC=com
+1 - DC=emea,DC=adatum,DC=com
+    
+    
+====================================
+select operation target: sel domain 1
+    
+    
+====================================
+select operation target: list sites
+Found 4 site(s)
+0 - CN=Default-First-Site-Name,CN=Sites,CN=Configuration,DC=adatum,DC=com
+1 - CN=MySite1,CN=Sites,CN=Configuration,DC=adatum,DC=com
+2 - CN=MySite2,CN=Sites,CN=Configuration,DC=adatum,DC=com
+3 - CN=MySite3,CN=Sites,CN=Configuration,DC=adatum,DC=com
+select operation target: sel site 1
+    
+    
+====================================
+select operation target: list servers for domain in site
+Found 2 server(s)
+0 - CN=DC5,CN=Servers,CN=MySite1,CN=Sites,CN=Configuration,DC=adatum,DC=com
+1 - CN=DC9,CN=Servers,CN=MySite1,CN=Sites,CN=Configuration,DC=adatum,DC=com
+select operation target: sel server 0
+    
+    
+====================================
+select operation target: quit
+metadata cleanup:
+    
+    
+====================================
+metadata cleanup: remove selected server
+    
+    
+====================================
+> netdom computername <CurrentName> /Add:<NewName>
+    
+    
+====================================
+> netdom computername <CurrentName> /MakePrimary:<NewName>
+    
+    
+====================================
+> netdom computername <NewName> /remove:<OldName>
+    
+    
+====================================
+> adfind -h domain.com -default -s base -asq  msds-masteredby -dn
+    
+    
+====================================
+' This code displays the
+' domain controllers for the specified domain.
+' ------ SCRIPT CONFIGURATION -----
+strDomain = "<DomainDNSName>" ' e.g. emea.adatum.com
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strDomain & "/RootDSE")
+set objDomain = GetObject("LDAP://" & objRootDSE.Get("defaultNamingContext"))
+strMasteredBy = objDomain.GetEx("masteredBy")
+for each strNTDSDN in strMasteredBy
+   set objNTDS = GetObject("LDAP://" & strNTDSDN)
+   set objServer = GetObject(objNTDS.Parent)
+   Wscript.echo objServer.Get("dNSHostName")
+next
+    
+    
+====================================
+$dom = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$dom.FindAllDomainControllers()
+    
+    
+====================================
+> nltest/dsgetdc:<DomainDNSName> [/site:<SiteName>] [/server:<ClientName>]
+    
+    
+====================================
+' This code finds the closest domain controller in the domain
+' that the computer running the script is in.
+' ------ SCRIPT CONFIGURATION ------
+strDomain = "<DomainDNSName>" ' e.g. emea.adatum.com
+' ------ END CONFIGURATION --------
+
+set objIadsTools = CreateObject("IADsTools.DCFunctions")
+objIadsTools.DsGetDcName( Cstr(strDomain) )
+Wscript.Echo "DC: " & objIadsTools.DCName
+Wscript.Echo "DC Site: " & objIadsTools.DCSiteName
+Wscript.Echo "Client Site: " & objIadsTools.ClientSiteName
+    
+    
+====================================
+$dom = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$dom.FindDomainController()
+    
+    
+====================================
+DS_FORCE_REDISCOVERY
+DS_DIRECTORY_SERVICE_REQUIRED
+DS_DIRECTORY_SERVICE_PREFERRED
+DS_GC_SERVER_REQUIRED
+DS_PDC_REQUIRED
+DS_IP_REQUIRED
+DS_KDC_REQUIRED
+DS_TIMESERV_REQUIRED
+DS_WRITABLE_REQUIRED
+DS_GOOD_TIMESERV_PREFERRED
+DS_AVOID_SELF
+DS_IS_FLAT_NAME
+DS_IS_DNS_NAME
+DS_RETURN_DNS_NAME
+DS_RETURN_FLAT_NAME
+    
+    
+====================================
+(&(objectcategory=server)(dnsHostName=<DomainControllerName>))
+    
+    
+====================================
+> nltest /dsgetsite /server:<DomainControllerName>
+    
+    
+====================================
+adfind -h <Domain FQDN> -rootdse servername
+    
+    
+====================================
+> adfind -config -rb cn=sites -f "(&(objectcategory=server)(cn=dc1))"
+distinguishedName
+> AdFind  V01.37.00cpp Joe Richards (joe@joeware.net) June 2007
+
+> Using server: dc1.adatum.com:389
+> Directory: Windows Server 2003
+> Base DN: cn=sites,CN=Configuration,DC=adatum,DC=com
+>
+> dn:CN=dc1,CN=Servers,CN=Raleigh,CN=Sites,CN=Configuration,DC=adatum,DC=com
+> distinguishedName: CN=dc1,CN=Servers,CN=Raleigh,CN=Sites,CN=Configuration,
+DC=adatum,DC=com
+>
+> 1 Objects returned
+    
+    
+====================================
+' This code prints the
+' site the specified domain controller is in
+' ------ SCRIPT CONFIGURATION -----
+strDC = "<DomainControllerName>" ' e.g. dc1.adatum.com
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strDC & "/RootDSE")
+set objNTDS = GetObject("LDAP://" & objRootDSE.Get("
+dsServiceName"))
+set objSite = GetObject(GetObject(GetObject(objNTDS.
+Parent).Parent).Parent)
+WScript.Echo objSite.Get("cn")
+    
+    
+====================================
+$dcname = <DomainDNSName>
+$context = New-Object
+System.DirectoryServices.ActiveDirectory.DirectoryContext('DirectoryServer',
+$dcname)
+$dc =
+[System.DirectoryServices.ActiveDirectory.DomainController]::getDomainController
+($context)
+$dc.SiteName
+    
+    
+====================================
+$dcname = <DomainDNSName>
+$user = "TREYRESEARCH\Administrator"
+$pass = "Password"
+$context = New-Object
+System.DirectoryServices.ActiveDirectory.DirectoryContext('DirectoryServer',
+$dcname, $user, $pass)
+$dc =
+[System.DirectoryServices.ActiveDirectory.DomainController]::getDomainController($context)
+    
+    
+====================================
+> dsmove "<ServerDN>" -newparent "<NewServersContainerDN>"
+    
+    
+====================================
+> dsmove "cn=dc2,cn=servers,cn=Default-First-Site-
+Name,cn=sites,cn=configuration,cn=
+adatum,dc=com" -newparent
+"cn=servers,cn=Raleigh,cn=sites,cn=configuration,cn=adatum,dc=com"
+    
+    
+====================================
+> admod -b cn=<ServerName>,cn=servers,cn=<OldSite>,cn=sites,
+cn=configuration,<ForestRootDN> -move cn=servers,cn=<NewSite>,
+cn=sites,cn=configuration,<ForestRootDN>
+    
+    
+====================================
+' This code moves a domain controller to a different site
+' ------ SCRIPT CONFIGURATION ------
+strDCName      = "<DomainControllerName>" ' e.g. dc2
+strCurrentSite = "<CurrentSiteName>"      ' e.g. Default-First-Site-Name
+strNewSite     = "<NewSiteName>"          ' e.g. Raleigh
+' ------ END CONFIGURATION ---------
+
+strConfigDN = GetObject("LDAP://RootDSE").Get("configurationNamingContext")
+strServerDN = "LDAP://cn=" & strDCName & ",cn=servers,cn=" & _
+                      strCurrentSite & ",cn=sites," & strConfigDN
+strNewParentDN = "LDAP://cn=servers,cn=" & strNewSite & ",cn=sites," & _
+                         strConfigDN
+
+set objCont = GetObject(strNewParentDN)
+objCont.MoveHere strServerDN, "cn=" & strDCName
+WScript.Echo "Successfully moved " & strDCName & " to " & strNewSite
+    
+    
+====================================
+$dcname = <DomainDNSName>
+$newSite = "HQ"
+$context = New-Object
+System.DirectoryServices.ActiveDirectory.DirectoryContext('DirectoryServer',
+$dcname)
+$dc =
+[System.DirectoryServices.ActiveDirectory.DomainController]::getDomainController
+($context)
+$dc.MoveToAnotherSite($newSite)
+    
+    
+====================================
+> for /F "usebackq" %i in ('dsquery server
+    -name"<DomainControllerName>"') do dsmove -newparent "cn=servers,
+    cn=Default-First-Site,cn=sites, cn=configuration,<ForestDN>" %i
+    
+    
+====================================
+for /F "usebackq" %i in
+    
+    
+====================================
+('dsquery server -name "<DomainControllerName>"')
+    
+    
+====================================
+do dsmove -newparent "cn=servers,cn=Default-First-
+Site,cn=sites,cn=configuration,<ForestDN>" %i
+    
+    
+====================================
+> dcdiag /v /s:<DomainControllerName> /test:advertising
+    
+    
+====================================
+Starting test: Advertising
+   The DC dc1 is advertising itself as a DC and having a DS.
+   The DC dc1 is advertising as an LDAP server
+   The DC dc1 is advertising as having a writable directory
+   The DC dc1 is advertising as a Key Distribution Center
+   The DC dc1 is advertising as a time server
+   The DS dc1 is advertising as a GC.
+    
+    
+====================================
+> nltest /server:<DomainControllerName> /dsgetdc:<DomainName>
+    
+    
+====================================
+      DC: \\dc1.adatum.com
+      Address: \\10.0.0.1
+     Dom Guid: ac0e4884-cf79-4c9d-8cd9-817e3bfdab54
+     Dom Name: adatum.com
+  Forest Name: adatum.com
+ Dc Site Name: Raleigh
+Our Site Name: Raleigh
+        Flags: PDC GC DS LDAP KDC TIMESERV GTIMESERV WRITABLE DNS_DC DNS_DOMAIN
+DNS_FOREST CLOSE_SITE
+    
+    
+====================================
+> ntdsutil
+> authoritative restore> restore subtree <ComputerDN>
+> quit
+> exit
+    
+    
+====================================
+activate instance ntds
+    
+    
+====================================
+> netsh ip reset <Log_File_Name>
+    
+    
+====================================
+> netsh winsock reset
+    
+    
+====================================
+[HKLM\System\CurrentControlSet\Services\W32Time\Parameters\]
+Type: REG_SZ - "NTP"
+
+[HKLM\System\CurrentControlSet\Services\W32Time\Config\]
+AnnounceFlags: REG_DWORD - 10
+
+[HKLM\System\CurrentControlSet\Services\W32Time\TimeProviders\]
+NTPServer: REG_DWORD - 1
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\W32Time\Parameters\]
+NTPServer: REG_SZ -<Peer1>,0x1,<Peer2>,0x1,<Peer3>,0x1
+    
+    
+====================================
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\W32Time\TimeProviders\
+NtpClient\]
+SpecialPollInterval: REG_DWORD -<TimeBetweenPollsInSeconds>
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\W32Time\Config\]
+MaxPosPhaseCorrection: REG_DWORD -<MaximumForwardOffsetInSeconds>
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\W32Time\Config\]
+MaxNegPhaseCorrection: REG_DWORD -<MaximumBackwardOffsetInSeconds>
+    
+    
+====================================
+> net stop w32time
+> net start w32time
+    
+    
+====================================
+' This codes configures a reliable
+' time source on a domain controller'
+ ------ SCRIPT CONFIGURATION ------
+strPDC = "<DomainControllerName>       ' e.g. dc01.adatum.com
+strTimeServer = "<TimeServerNameOrIP>" ' e.g. ntp01.adatum.com
+' ------ END CONFIGURATION --------
+
+strTimeServerReg = "SYSTEM\CurrentControlSet\Services\W32Time\Parameters"
+const HKLM = &H80000002
+set objReg = GetObject("winmgmts:\\" & strPDC & "\root\default:StdRegProv")
+objReg.GetStringValue HKLM, strTimeServerReg, "ntpserver", strCurrentServer
+WScript.Echo "Current Value: " & strCurrentServer
+objReg.SetStringValue HKLM, strTimeServerReg, "ntpserver", strTimeServer
+objReg.SetStringValue HKLM, strTimeServerReg, "type", "NTP"
+strCurrentServer = ""
+objReg.GetStringValue HKLM, strTimeServerReg, "ntpserver", strCurrentServer
+WScript.Echo "New Value: " & strCurrentServer
+
+' Restart Time Service
+set objService = GetObject("winmgmts://" & strPDC & _
+                           "/root/cimv2:Win32_Service='W32Time'")
+WScript.Echo "Stopping " & objService.Name
+objService.StopService()
+
+Wscript.Sleep 2000 ' Sleep for 2 seconds to give service time to stop
+
+WScript.Echo "Starting " & objService.Name
+objService.StartService()
+    
+    
+====================================
+> net time /querysntp
+    
+    
+====================================
+> nltest /server:<DomainControllerName> /dsgetdc:<DomainDNSName> /TIMESERV
+    
+    
+====================================
+> nltest /server:<DomainControllerName> /LOGON_QUERY
+    
+    
+====================================
+Number of attempted logons: 1054
+    
+    
+====================================
+> bootcfg /raw /"3GB" /ID <BootID>
+    
+    
+====================================
+> bcdedit /set IncreaseUserVA 3072
+    
+    
+====================================
+[boot loader]
+timeout=30
+default=multi(0)disk(0)rdisk(0)partition(2)\WINDOWS
+[operating systems]
+multi(0)disk(0)rdisk(0)partition(2)\WINDOWS="Windows Server 2003" /3GB
+    
+    
+====================================
+> cscript dltpurge.vbs -s dc1 -d dc=adatum,dc=com
+    
+    
+====================================
+> dsmod server "<ServerObjectDN>" -isgc yes|no
+    
+    
+====================================
+> dsmod server
+"cn=DC1,cn=servers,cn=Raleigh,cn=sites,cn=configuration,dc=adatum,dc=com" -isgc
+Yes
+    
+    
+====================================
+> adfind –b "cn=NTDS 
+Settings,cn=dc1,cn=Servers,cn=Raleigh,cn=Sites,cn=Configuration,dc=adatum,dc=com" 
+options –adcsv | admod options::{{.:SET:1}}
+    
+    
+====================================
+' This code enables or disables the GC for the specified DC
+' ------ SCRIPT CONFIGURATION ------
+strDC = "<DomainControllerName>" ' e.g. dc01.adatum.com
+strGCEnable = 1                  ' 1 = enable, 0 = disable
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strDC & "/RootDSE")
+objNTDS = GetObject("LDAP://" & strDC & "/" & _
+                    objRootDSE.Get("dSServiceName"))
+objNTDS.Put "options", strGCEnable
+objNTDS.SetInfo
+    
+    
+====================================
+$dcname = <DomainDNSName>
+$context = New-Object
+System.DirectoryServices.ActiveDirectory.DirectoryContext('DirectoryServer',$dcname)
+$dc =
+[System.DirectoryServices.ActiveDirectory.DomainController]::getDomainController
+($context)
+$dc.EnableGlobalCatalog()
+    
+    
+====================================
+cn=NTDSSettings,cn=DC1,cn=Default-First-Site-
+Name,cn=Sites,cn=Configuration,dc=adatum,dc=com
+    
+    
+====================================
+"This Windows Domain Controller is now a Global Catalog Server"
+    
+    
+====================================
+> HKLM\System\CurrentControlSet\Services\NTDS\Parameters\
+> Global Catalog Promotion Complete: REG_DWORD - "1" if complete, "0" if not.
+    
+    
+====================================
+> nltest /dsgetdc:adatum.com
+    
+    
+====================================
+> C:\>nltest /dsgetdc:adatum.com
+>           DC: \\dc1.adatum.com
+>      Address: \\10.0.0.1
+>     Dom Guid: ac0e4884-cf79-4c9d-8cd9-817e3bfdab54
+>     Dom Name: adatum.com
+>  Forest Name: adatum.com
+> Dc Site Name: Raleigh
+> Our Site Name: Raleigh
+>        Flags: PDC GC DS LDAP KDC TIMESERV GTIMESERV WRITABLE DNS_DC DNS_DOMAIN
+> DNS_FOREST CLOSE_SITE
+> The command completed successfully
+    
+    
+====================================
+$dcname = <DomainDNSName>
+$username = <Username>
+$pass = <Password>
+$context = New-Object
+System.DirectoryServices.ActiveDirectory.DirectoryContext('DirectoryServer',$dcname
+,$username,$pass)
+$dc =
+[System.DirectoryServices.ActiveDirectory.DomainController]::getDomainController
+($context)
+$dc.IsGlobalCatalog()
+    
+    
+====================================
+> dsquery server -forest -isgc
+    
+    
+====================================
+> adfind -sites -f "(&(objectcategory=ntdsdsa)
+   (options:AND:=1))" -bit -dn
+    
+    
+====================================
+' This code prints the global catalog servers for the specified forest.
+' ------ SCRIPT CONFIGURATION -----
+strForestName = "<ForestDNSName>" ' e.g. rallencorp.com
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strForestName & "/" & "RootDSE")
+strADsPath = "<LDAP://" & objRootDSE.Get("configurationNamingContext") & ">;"
+strFilter  = "(&(objectcategory=ntdsdsa)(options=1));"
+strAttrs   = "distinguishedname;"
+strScope   = "SubTree"
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strADsPath & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+while not objRS.EOF
+    set objNTDS = GetObject("LDAP://" & objRS.Fields(0).Value)
+    set objServer = GetObject( objNTDS.Parent )
+    Wscript.Echo objServer.Get("dNSHostName")
+    objRS.MoveNext
+wend
+    
+    
+====================================
+$dom = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$dom.FindAllDomainControllers() | where {$_.IsGlobalCatalog() -eq "TRUE" }
+    
+    
+====================================
+$for = [System.DirectoryServices.ActiveDirectory.Forest]::getCurrentForest()
+$dom.FindAllGlobalCatalogs()
+    
+    
+====================================
+> adfind -sites-rb cn=<SiteName> -f (objectcategory=ntdsdsa)
+    
+    
+====================================
+adfind -sites -rb cn=<SiteName> -f
+"(&(objectcategory=ntdsdsa)(options:AND:=1))" -bit
+    
+    
+====================================
+' This code prints the domain controllers in a site and then
+' prints the global catalog servers in the site
+' ------ SCRIPT CONFIGURATION -----
+strSite = "<SiteName>" ' e.g. Default-First-Site-Name
+strForest = "<ForestDNSName>" ' e.g. rallencorp.com
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strForest & "/RootDSE")
+strADsPath = "<LDAP://cn=servers,cn=" & strSite & ",cn=sites," & _
+              objRootDSE.Get("configurationNamingContext") & ">;"
+strFilter  = "(objectcategory=ntdsdsa);"
+strAttrs   = "distinguishedName;"
+strScope   = "SubTree"
+
+WScript.Echo "Domain controllers in " & strSite & ":"
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strADsPath & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+while not objRS.EOF
+    Set objNTDS = GetObject("LDAP://" & objRS.Fields(0).Value)
+    Set objServer = GetObject( objNTDS.Parent )
+    Wscript.Echo " " & objServer.Get("dNSHostName")
+    objRS.MoveNext
+wend
+
+' Global Catalog filter
+strFilter = "(&(objectcategory=ntdsdsa)(options=1));"
+WScript.Echo ""
+WScript.Echo "
+Global Catalogs in " & strSite & ":"
+set objRS = objConn.Execute(strADsPath & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+while not objRS.EOF
+    set objNTDS = GetObject("LDAP://" & objRS.Fields(0).Value)
+    set objServer = GetObject( objNTDS.Parent )
+    Wscript.Echo " " & objServer.Get("dNSHostName")
+    objRS.MoveNext
+wend
+    
+    
+====================================
+$dom = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$dom.FindAllDomainControllers("SiteA")
+    
+    
+====================================
+$dom = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$dom.FindAllDomainControllers("SiteA") | where {$_.IsGlobalCatalog() -eq "TRUE" }
+    
+    
+====================================
+$for = [System.DirectoryServices.ActiveDirectory.Forest]::getCurrentForest()
+$dom.FindAllGlobalCatalogs("SiteA")
+    
+    
+====================================
+> nslookup
+Default Server: dns01.adatum.com
+Address: 10.1.2.3
+
+> set type=SRV
+    
+    
+====================================
+> _ldap._tcp.<DomainDNSName>
+    
+    
+====================================
+> _gc._tcp.<ForestDNSName>
+    
+    
+====================================
+> _ldap._tcp.<SiteName>._sites.<DomainDNSName>
+> _gc._tcp.<SiteName>._sites.<ForestDNSName>
+    
+    
+====================================
+C:\> nslookup -type=SRV _ldap._tcp.dc._msdcs.adatum.com
+Server: dns01.adatum.com
+Address: 171.70.168.183
+
+_ldap._tcp.dc._msdcs.adatum.com SRV service location:
+          priority       = 0
+          weight         = 1
+          port           = 389
+          svr hostname   = dc1.adatum.com
+_ldap._tcp.dc._msdcs.adatum.com SRV service location:
+
+priority       = 0
+
+weight         = 2
+          port           = 389
+          svr hostname   = dc2.adatum.com
+_ldap._tcp.dc._msdcs.datum.com SRV service location:
+          priority       = 0
+          weight         = 3
+          port           = 389
+          svr hostname   = dc3.datum.com
+    
+    
+====================================
+> reg add HKLM\SYSTEM\CurrentControlSet\Control\LSA\IgnoreGCFailures /ve
+> shutdown /r
+    
+    
+====================================
+' This code enables the IgnoreGCFailres registry setting and reboots
+strLSA = "HKLM\SYSTEM\CurrentControlSet\Control\LSA\IgnoreGCFailures\"
+Set objWSHShell = WScript.CreateObject("WScript.Shell")
+objWSHShell.RegWrite strLSA, ""
+WScript.Echo "Successfully created key"
+WScript.Echo "Rebooting server . . . "
+objWSHShell.Run "rundll32 shell32.dll,SHExitWindowsEx 2"
+    
+    
+====================================
+> netdom query fsmo /Domain:<DomainDNSName>
+    
+    
+====================================
+> dsquery server -hasfsmo <Role>
+    
+    
+====================================
+> adfind -sc fsmo
+    
+    
+====================================
+' This code prints the FSMO role
+' owners for the specified domain.
+' ------ SCRIPT CONFIGURATION ------
+strDomain = "<DomainDNSName>" ' e.g. emea.rallencorp.com
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strDomain & "/RootDSE")
+strDomainDN = objRootDSE.Get("defaultNamingContext")
+strSchemaDN = objRootDSE.Get("schemaNamingContext")
+strConfigDN = objRootDSE.Get("configurationNamingContext")
+
+' PDC Emulator
+set objPDCFsmo = GetObject("LDAP://" & strDomainDN)
+Wscript.Echo "PDC Emulator: " & objPDCFsmo.fsmoroleowner
+
+' RID Master
+set objRIDFsmo = GetObject("LDAP://cn=RID Manager$,cn=system," & strDomainDN)
+Wscript.Echo "RID Master: " & objRIDFsmo.fsmoroleowner
+
+' Schema Master
+set objSchemaFsmo = GetObject("LDAP://" & strSchemaDN)
+Wscript.Echo "Schema Master: " & objSchemaFsmo.fsmoroleowner
+
+' Infrastructure Master
+set objInfraFsmo = GetObject("LDAP://cn=Infrastructure," & strDomainDN)
+Wscript.Echo "Infrastructure Master: " & objInfraFsmo.fsmoroleowner
+
+' Domain Naming Master
+set objDNFsmo = GetObject("LDAP://cn=Partitions," & strConfigDN)
+Wscript.Echo "Domain Naming Master: " & objDNFsmo.fsmoroleowner
+    
+    
+====================================
+$dom = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$for = [System.DirectoryServices.ActiveDirectory.Forest]::getCurrentForest()
+$for.NamingRoleOwner
+$for.SchemaRoleOwner
+$dom.PdcRoleOwner
+$dom.RidRoleOwner
+$dom.InfrastructureRoleOwner
+    
+    
+====================================
+set objSchemaFsmo = GetObject("LDAP://cn=Schema,cn=Configuration," & strForestDN)
+set objSchemaFsmoNTDS = GetObject("LDAP://" & objSchemaFsmo.fsmoroleowner)
+set objSchemaFsmoServer = GetObject(objSchemaFsmoNTDS.Parent)
+Wscript.Echo "Schema Master: " & objSchemaFsmoServer.Get("dNSHostName")
+    
+    
+====================================
+$dom = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$dom
+$for = [System.DirectoryServices.ActiveDirectory.Forest]::getCurrentForest()
+$for
+    
+    
+====================================
+> ntdsutil roles conn "co t s <NewRoleOwner>" q "transfer PDC" q q
+    
+    
+====================================
+' This code transfers the PDC Emulator role to the specified owner.
+' See the discussion to see about
+' transferring the other roles.
+' ------ SCRIPT CONFIGURATION ------
+strNewOwner = "<NewRoleOwner>" ' e.g. dc2.rallencorp.com
+' ------ END CONFIGURATION ---------
+
+Set objRootDSE = GetObject("LDAP://" & strNewOwner & "/RootDSE")
+Set domainNC = GetObject("LDAP://" & objRootDSE.get("defaultNamingContext"))
+domainSID = domainNC.objectSid
+objRootDSE.Put "becomePDC", domainSID
+objRootDSE.SetInfo
+    
+    
+====================================
+$dom = [ADSI]""
+$domainSID = $dom.objectSID
+$dcDSE = [ADSI]"LDAP://<DC>/rootDSE"
+$role = "becomePdc"
+$dcDSE.put($role,$domainSID)
+$dcDSE.Setinfo()
+    
+    
+====================================
+$dcDSE = [ADSI]"LDAP://<DC>/rootDSE"
+$role = "becomeRID"
+$dcDSE.put($role,1)
+$dcDSE.Setinfo()
+    
+    
+====================================
+> ntdsutil roles conn "co t s <NewRoleOwner>" q "seize PDC" q q
+    
+    
+====================================
+> nslookup -type=SRV _ldap._tcp.pdc._msdcs.<DomainDNSName>
+    
+    
+====================================
+> netsh wins server \\<WINS server> show name netbiosname 1b
+    
+    
+==================

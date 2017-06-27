@@ -1,0 +1,197 @@
+chapter: Active Directory Federation Services
+==================
+[Components]
+iis_common = on
+aspnet = on
+complusnetwork = on
+
+[InternetServer]
+PathWWWServer = "d:\docs\webfiles"
+    
+    
+====================================
+> sysocmgr /i:sysoc.inf /u:<PathToUnattendedFile>
+    
+    
+====================================
+> servermanagercmd web-server web-asp-net
+    
+    
+====================================
+;----------------- request.inf -----------------
+
+[Version] 
+
+Signature="$Windows NT$ 
+
+[NewRequest]
+
+Subject = "CN=<DC fqdn>" ; replace with the FQDN of the DC 
+KeySpec = 1 
+KeyLength = 1024 
+; Can be 1024, 2048, 4096, 8192, or 16384.
+; Larger key sizes are more secure, but have 
+; a greater impact on performance. 
+Exportable = TRUE 
+MachineKeySet = TRUE 
+SMIME = False 
+PrivateKeyArchive = FALSE 
+UserProtected = FALSE 
+UseExistingKeySet = FALSE 
+ProviderName = "Microsoft RSA SChannel Cryptographic Provider" 
+ProviderType = 12
+RequestType = PKCS10 
+KeyUsage = 0xa0 
+
+[EnhancedKeyUsageExtension] 
+
+OID=1.3.6.1.5.5.7.3.1 ; this is for Server Authentication 
+
+;-----------------------------------------------
+    
+    
+====================================
+> certreq -new request.inf request.req
+    
+    
+====================================
+> certreq -accept newcert.cer
+    
+    
+====================================
+[Components]
+ADFSFederationServer = On
+
+[ADFS]
+UseASPNet = 1
+
+[ADFSFederationServer]
+SignCertificateThumbprintFS = ""
+TrustPolicyPath = "d:\ADFS\TrustPolicies\defaulttrust.xml"
+    
+    
+====================================
+> sysocmgr /i:sysoc.inf /u:<PathToUnattendedFile>
+    
+    
+====================================
+> servermanagercmd -i ADFS-Federation
+    
+    
+====================================
+> netdom trust <Forest1DNSName> /Domain:<Forest2DNSName> /Twoway /Transitive /ADD
+               [/UserD:<Forest2AdminUser> /PasswordD:*]
+               [/UserO:<Forest1AdminUser> /PasswordO:*]
+    
+    
+====================================
+> netdom trust adatum.com /Domain:othercorp.com /Twoway /Transitive /ADD
+         /UserD:administrator@othercorp.com /PasswordD:*
+         /UserO:administrator@adatum.com /PasswordO:*
+    
+    
+====================================
+$localFor = [System.DirectoryServices.ActiveDirectory.Forest]::getCurrentForest()
+$strRemoteFor = 'treyresearch.net'
+$strRemoteUser = 'administrator'
+$strRemotePass = 'P@ssw0rd'
+$remoteCon = New-Object
+System.DirectoryServices.ActiveDirectory.DirectoryContext('Forest',$strRemoteFor,
+$strRemoteUser,$strRemotePass)$trustDirection = 'Bidirectional'
+$localFor.CreateTrustRelationship($remoteFor, $trustDirection)
+    
+    
+====================================
+> admod -config -rb cn=Partitions uPNSuffixes:+:treyresearch.com
+    
+    
+====================================
+' This code adds a new UPN suffix.
+' ------ SCRIPT CONFIGURATION -----
+strNewSuffix = "<NewSuffix>" ' e.g. othercorp.com
+strDomain = "<DomainDNSName>" ' e.g. adatum.com
+' ------ END CONFIGURATION ---------
+set objRootDSE = GetObject("LDAP://" & strDomain & "/RootDSE")
+set objPartitions = GetObject("LDAP://cn=Partitions," & _
+                              objRootDSE.Get("ConfigurationNamingContext"))
+objPartitions.PutEx ADS_PROPERTY_APPEND, " 
+uPNSuffixes", Array(strNewSuffix)
+
+objPartitions.SetInfo
+    
+    
+====================================
+set-variable -name $ADS_PROPERTY_APPEND -value 3 -option constant
+$strDN = "LDAP://cn=Partitions,cn=Configuration,<ForestDN>"
+$strNewSuffix = "<NewSuffix>"
+$objPart = [ADSI] $strDN
+$objPart.PutEx($ADS_PROPERTY_APPEND, "uPNSuffixes", @($strNewSuffix))
+$objPart.SetInfo()
+    
+    
+====================================
+[Components]
+ADFSClaims = On
+ADFSTraditional = On
+    
+    
+====================================
+> sysocmgr /i:sysoc.inf /u:<PathToUnattendedFile>
+    
+    
+====================================
+> servermanagercmd.exe -i ADFS-Web-Agents
+    
+    
+====================================
+HKLM\System\CurrentControlSet\Control\Lsa\WebSSO\Parameters\DebugLevel
+DWORD - "FFFFFFFF"
+
+HKLM\System\CurrentControlSet\Control\Lsa\ifssvc\Parameters\DebugPrintLevel
+DWORD - "FFFFFFFF"
+
+HKLM\Software\Microsoft\ADFS\WebServerAgent\DebugPrintLevel
+DWORD - "FFFFFFFF"
+    
+    
+====================================
+' The following script creates the necessary DWORD values to
+' configure logging for a token-based application
+
+'-------------SCRIPT CONFIGURATION--------------------------
+Const HKEY_LOCAL_MACHINE = &H80000002
+strComputer = "."
+'-----------------------------------------------------------
+
+Set oRegistry=GetObject("winmgmts:{impersonationLevel=impersonate}!\\" & _
+    strComputer & "\root\default:StdRegProv")
+
+strKeyPath = "System\CurrentControlSet\Control\Lsa\WebSSO\Parameters"
+
+strValueName = "DebugLevel"
+dwValue = FFFFFFFF
+oReg.SetDWORDValue HKEY_LOCAL_MACHINE,strKeyPath,strValueName,dwValue
+
+strKeyPath = "System\CurrentControlSet\Control\Lsa\ifssvc\Parameters"
+strValueName = "DebugPrintLevel"
+oReg.SetDWORDValue HKEY_LOCAL_MACHINE,strKeyPath,strValueName,dwValue
+
+strKeyPath = "Software\Microsoft\ADFS\WebServerAgent"
+oReg.SetDWORDValue HKEY_LOCAL_MACHINE,strKeyPath,strValueName,dwValue
+    
+    
+====================================
+$strRegPath = "HKLM\System\CurrentControlSet\Control\Lsa\WebSSO\Parameters"
+New-ItemProperty -path $strRegPath -name "DebugLevel" -type DWORD
+Set-ItemProperty -path $strRegPath -name "DebugLevel" -value "FFFFFFFF"
+
+$strRegPath = "HKLM\System\CurrentControlSet\Control\Lsa\ifssvc\Parameters"
+New-ItemProperty -path $strRegPath -name "DebugPrintLevel" -type DWORD
+Set-ItemProperty -path $strRegPath -name "DebugPrintLevel" -value "FFFFFFFF"
+
+$strRegPath = "HKLM\Software\Microsoft\ADFS\WebServerAgent"
+New-ItemProperty -path $strRegPath -name "DebugPrintLevel" -type DWORD
+Set-ItemProperty -path $strRegPath -name "DebugPrintLevel" -value "FFFFFFFF"
+    
+    
+==================

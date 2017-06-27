@@ -1,0 +1,1194 @@
+chapter: Schema
+==================
+> regsvr32 schmmgmt.dll
+    
+    
+====================================
+DllRegisterServer in schmmgmt.dll succeeded.
+    
+    
+====================================
+> reg add HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\NTDS\Parameters /t
+REG_DWORD /v "Schema Update Allowed" /d 1
+    
+    
+====================================
+> reg delete HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\NTDS\Parameters
+/v "Schema Update Allowed" /f
+    
+    
+====================================
+' This code enables or disables schema mods on Schema FSMO.
+' ------ SCRIPT CONFIGURATION ------
+' TRUE to enable schema mods and FALSE to disable
+boolSetReg = TRUE
+
+' Name of the Schema FSMO or "." to run locally
+strDC = "<SchemaFSMOName>"
+' ------ END CONFIGURATION --------
+
+const HKEY_LOCAL_MACHINE = &H80000002
+set objReg = GetObject("winmgmts:\\" & strDC & "\root\default:StdRegProv")
+strKeyPath   = "System\CurrentControlSet\Services\NTDS\Parameters"
+strValueName = "Schema Update Allowed"
+
+if boolSetReg = TRUE then
+   strValue = 1
+   intRC = objReg.SetDWORDValue(HKEY_LOCAL_MACHINE,strKeyPath, _
+                                strValueName,strValue)
+   if intRC > 0 then
+      WScript.Echo "Error occurred: " & intRC
+   else
+      WScript.Echo strValueName & " value set to " & strValue
+   end if
+else
+   intRC = objReg.DeleteValue(HKEY_LOCAL_MACHINE,strKeyPath,strValueName)
+   if intRC > 0 then
+      WScript.Echo "Error occurred: " & intRC
+   else
+      WScript.Echo strValueName & " value deleted"
+   end if
+end if
+    
+    
+====================================
+HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\NTDS\Parameters
+    
+    
+====================================
+cn=Windows2003Update,cn=ForestUpdates,cn=Configuration,<ForestRootDN>
+    
+    
+====================================
+cn=ActiveDirectoryUpdate,cn=ForestUpdates,cn=Configuration,<ForestRootDN>
+    
+    
+====================================
+> adprep /domainprep /gpprep
+    
+    
+====================================
+dn: cn=adatum-LanguagesSpoken,cn=schema,cn=configuration,<ForestRootDN>
+changetype: add
+objectclass: attributeSchema
+lDAPDisplayName: adatumLanguagesSpoken
+attributeId: 1.3.6.1.4.1.999.1.1.28.3
+oMSyntax: 20
+attributeSyntax: 2.5.5.4
+isSingleValued: FALSE
+searchFlags: 1
+description: "Languages a user speaks"
+    
+    
+====================================
+> ldifde -v -i -f create_attr.ldf
+    
+    
+====================================
+> admod -schema -rb cn=adatumLanguagesSpoken
+  objectClass::attributeSchema
+     lDAPDisplayName::adatumLanguagesSpoken
+     attributeId::1.3.6.1.4.1.999.1.1.28.3
+     omSyntax::20
+     attributeSyntax::2.5.5.4
+     isSingleValued::FALSE
+     searchFlags::1
+     description::"Languages a user speaks"
+     -add
+    
+    
+====================================
+' This code illustrates how to create an attribute
+' called adatum-LanguagesSpoken.
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objSchemaCont = GetObject("LDAP://" & _
+                             objRootDSE.Get("schemaNamingContext") )
+set objAttr = objSchemaCont.Create("attributeSchema", _
+                                  "cn=adatum-LanguagesSpoken")
+objAttr.Put "lDAPDisplayName", "adatum-LanguagesSpoken"
+objAttr.Put "attributeId", "1.3.6.1.4.1.999.1.1.28.3"
+objAttr.Put "oMSyntax", 20
+objAttr.Put "attributeSyntax", "2.5.5.4"
+objAttr.Put "isSingleValued", FALSE
+objAttr.Put "description", "Languages a user speaks"
+objAttr.Put "searchFlags", 1 ' index the attribute
+objAttr.SetInfo
+WScript.Echo "Attribute created"
+    
+    
+====================================
+new-QADObject -ParentContainer 'cn=schema,cn=configuration,<ForestRootDN>' -type
+'attributeSchema' -name 'adatum-LanguagesSpoken' -ObjectAttributes
+@{lDAPDisplayName='adatum-LanguagesSpoken';
+attributeId='1.3.6.1.4.1.999.1.1.28.3';oMSyntax='20';attributeSyntax='2.5.5.4';
+isSingleValued='FALSE';description='Language a user speaks';searchFlags='1'}
+    
+    
+====================================
+$root = [ADSI]"LDAP://RootDSE"
+$schema = $root.schemaNamingContext
+$parentCont = [ADSI]("LDAP://" + $schema)
+$newAttr = $parentCont.Create("attributeSchema","adatum-LanguagesSpoken")
+$newAttr.put("lDAPDisplayName","adatum-LanguagesSpoken")
+$newAttr.put("attributeId","1.3.6.1.4.1.999.1.1.28.3")
+$newAttr.put("oMSyntax", 20)
+$newAttr.put("attributeSyntax", "2.5.5.4")
+$newAttr.put("isSingleValued", $false)
+$newAttr.put("description", "Languages a user speaks")
+$newAttr.put("searchFlags", 1)
+$newAttr.SetInfo()
+    
+    
+====================================
+> dsquery * cn=schema,cn=configuration,<ForestRootDN> -scope onelevel -attr *
+-filter "(&(objectcategory=attributeSchema)(cn=<AttrCommonName>))"
+    
+    
+====================================
+> adfind -schema -f (ldapdisplayname=<AttributeName>)
+    
+    
+====================================
+> adfind -sc s:<AttributeName>
+    
+    
+====================================
+' This code displays the
+' attributes for the specified attributeSchema object
+' Refer to  for the DisplayAttributes()
+' function code.
+' ------ SCRIPT CONFIGURATION ------
+' Set to the common name (not LDAP display dame) of the attribute
+strAttrName = "<AttrCommonName>" ' e.g. surname
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objAttr = GetObject("LDAP://cn=" & strAttrName & "," & _
+                        objRootDSE.Get("schemaNamingContext"))
+objAttr.GetInfo
+WScript.Echo "Properties for " & strAttrName & ":"
+DisplayAttributes(objAttr.ADsPath)
+    
+    
+====================================
+$attr = get-QADObject -LdapFilter
+"(&(objectcategory=attributeSchema)(cn=<AttrCommonName>))"
+$attr.psbase.getProperties() | format-table PropertyName, Value
+
+$strAttrName  "<AttrCommonName>"  ## e.g., surname
+
+$root = [ADSI]"LDAP://RootDSE"
+$obj = [ADSI]("LDAP://cn=" + $strAttrName + "," + $root.schemaNamingContext)
+$obj.psbase.Properties | ft PropertyName, Value
+    
+    
+====================================
+cn=surname,cn=schema,cn=configuration,dc=adatum,dc=com
+    
+    
+====================================
+dn: cn=adatum-SalesUser,cn=schema,cn=configuration,<ForestRootDN>
+changetype: add
+objectclass: classSchema
+lDAPDisplayName: adatum-SalesUser
+governsId: 1.3.6.1.4.1.999.1.1.28.4
+objectClassCategory: 3
+subClassOf: top
+description: Auxiliary class for Sales user attributes
+adminDescription: Auxiliary class for Sales user
+attributes
+mayContain: adatum-Building
+mayContain: adatum-Theatre
+    
+    
+====================================
+> ldifde -v -i -f create_class.ldf
+    
+    
+====================================
+> admod -schema -rb cn=adatum-SalesUser
+    objectclass::classSchema lDAPDisplayName::adatum-SalesUser
+    governsId::1.3.6.1.4.1.999.1.1.28.4 objectClassCategory::3
+    subClassOf::top
+    description::"Auxiliary class for Sales user"
+    adminDescription::"Auxiliary class for Sales user"
+    mayContain::adatum-Building;adatum-Theatre
+    -add
+    
+    
+====================================
+' This code creates a class in the schema called adatum-SalesUser.
+' It is assumed that the script is being run by a member of Schema Admins
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objSchemaCont = GetObject("LDAP://" & _
+                              objRootDSE.Get("schemaNamingContext") )
+set objClass = objSchemaCont.Create("classSchema", _
+                                    "cn=adatum-SalesUser")
+objClass.Put "lDAPDisplayName", "adatum-SalesUser"
+objClass.Put "governsId", "1.3.6.1.4.1.999.1.1.28.4"
+objClass.Put "objectClassCategory", 3
+objClass.Put "subClassOf", "top"
+objClass.Put "adminDescription", "Auxilliary class for Sales user attributes"
+objClass.Put "mayContain", Array("adatum-Building","adatum-Theatre")
+objClass.SetInfo
+WScript.Echo "Class created"
+    
+    
+====================================
+new-QADObject -ParentContainer 'cn=schema,cn=configuration,<ForestRootDN>' -type
+'classSchema' -name 'adatum-SalesUser' -ObjectAttributes @{lDAPDisplayName='adatum-
+SalesUser';
+governsId='1.3.6.1.4.1.999.1.1.28.4';objectClassCategory='3';subClassOf='top';admin
+Description='Auxilliary class for Sales user
+attributes';mayContain=@('description';'adatum-Theatre')}
+    
+    
+====================================
+$ADS_PROPERTY_APPEND=2
+$parentCont = [ADSI] "LDAP://cn=schema,cn=configuration,<ForestRootDN>"
+$newClass = $parentCont.Create("classSchema","adatum-SalesUser")
+$newClass.put("lDAPDisplayName","adatum-SalesUser")
+$newClass.put("governsId","1.3.6.1.4.1.999.1.1.28.4")
+$newClass.put("objectClassCategory","3")
+$newClass.put("subClassOf","top")
+$newClass.put("adminDescription","Auxilliary class for Sales user attributes")
+$newClass.putEx($ADS_PROPERTY_APPEND, "mayContain", @("adatum-Building","adatum-
+Theatre"))
+$newClass.SetInfo()
+    
+    
+====================================
+> dsquery * cn=<ClassCommonName>,cn=schema,cn=configuration,<ForestRootDN> -scope
+base -attr *
+    
+    
+====================================
+> adfind -schema -rb cn=<ClassCommonName>
+    
+    
+====================================
+> adfind -sc s:<ClassCommonName or ClassLDAPDisplayName>
+    
+    
+====================================
+' This code prints out the attributes for the specified class.
+'  for the code for the DisplayAttributes()
+' function.
+' ------ SCRIPT CONFIGURATION ------
+' Set to the common name (not LDAP display dame)
+' of the class you want to view.
+strClassName = "<ClassCommonName>" ' e.g. user
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objClass = GetObject("LDAP://cn=" & strClassName & "," & _
+                         objRootDSE.Get("schemaNamingContext"))
+objClass.GetInfo
+WScript.Echo "Properties for " & strClassName
+DisplayAttributes(objClass.ADsPath)
+    
+    
+====================================
+$objClass = get-QADObject -Identity "cn=<Class
+Name>,cn=schema,cn=Configuration,<ForestRootDN>"
+$objClass.psbase.getProperties() | format-table PropertyName, Value
+
+$root = [ADSI]"LDAP://RootDSE"
+$obj = [ADSI]("LDAP://cn=" + $strClassName + "," + $root.schemaNamingContext)
+$obj.psbase.Properties | ft PropertyName, Value
+    
+    
+====================================
+dn: cn=<AttrCommonName>,cn=schema,cn=configuration,<ForestRootDN>
+changetype: modify
+replace: searchFlags
+searchFlags: 1
+-
+    
+    
+====================================
+> ldifde -v -i -f index_attribute.ldf
+    
+    
+====================================
+> admod -schema -rb cn=<AttrCommonName> searchFlags::1
+    
+    
+====================================
+' This code indexes an attribute.
+' ------ SCRIPT CONFIGURATION ------
+' Set to the common name (not LDAP display name) of the attribute
+strAttrName = "<AttrCommonName>" ' e.g. adatum-LanguagesSpoken
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objAttr = GetObject("LDAP://cn=" & strAttrName & "," &
+                        objRootDSE.Get("schemaNamingContext"))
+objAttr.Put "searchFlags", 1
+objAttr.SetInfo
+WScript.Echo "
+Indexed attribute: " & strAttrName
+    
+    
+====================================
+$strAttrName = "<AttrCommonName>"  # e.g. adatum-LanguagesSpoken
+
+$root = [ADSI]"LDAP://RootDSE"
+$objAttr = [ADSI]("LDAP://cn=" + $strAttrName + "," + $root.schemaNamingContext)
+$objAttr.put("searchFlags", $objAttr.searchFlags.Value -bor 1)
+$objAttr.setInfo()
+    
+    
+====================================
+(&(objectcategory=attributeSchema)(!(searchFlags:1.2.840.113556.1.4.803:=1)))
+    
+    
+====================================
+adfind -sc indexed
+    
+    
+====================================
+dn: cn=adatum-LanguagesSpoken,cn=schema,cn=configuration,<ForestRootDN>
+changetype: modify
+replace: searchFlags
+searchFlags: 16
+-
+    
+    
+====================================
+> ldifde -v -i -f add_dup_user_attr.ldf
+    
+    
+====================================
+> admod -b <AttributeDN> searchFlags::16
+    
+    
+====================================
+' This code adds an attribute to the list of
+' attributes that get
+' copied when duplicating a user.
+' ------ SCRIPT CONFIGURATION ------
+' Set to the common name (not LDAP display dame) of the attribute
+strAttrName = "<AttrCommonName>" ' e.g. adatum-LanguagesSpoken
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objAttr = GetObject("LDAP://cn=" & strAttrName & "," & objRootDSE.
+Get("schemaNamingContext"))
+objAttr.Put "searchFlags", 16
+objAttr.SetInfo
+WScript.Echo "New copied attribute: " & strAttrName
+    
+    
+====================================
+$strAttrName = "<AttrCommonName>"  # e.g. adatum-LanguagesSpoken
+
+$root = [ADSI]"LDAP://RootDSE"
+$objAttr = [ADSI]("LDAP://cn=" + $strAttrName + "," + $root.schemaNamingContext)
+$objAttr.put("searchFlags", $objAttr.searchFlags.Value -bor 16)
+$objAttr.setInfo()
+    
+    
+====================================
+(&(objectcategory=attributeSchema)(!(searchFlags:1.2.840.113556.1.4.803:=16)))
+    
+    
+====================================
+adfind -sc copy
+    
+    
+====================================
+Set oFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
+sSystemFolder = oFileSystem.GetSpecialFolder(1)
+set oRootDSE = Getobject("LDAP://RootDSE")
+
+' The display specifier for US English is 409; modify this
+' for another locale if necessary.
+set oCont = GetObject("LDAP://" & "CN=409, CN=DisplaySpecifiers," &
+oRootDSE.get("configurationNamingContext"))
+Set oDisp = oCont.GetObject("displaySpecifier","cn=user-Display")
+
+'Add Attribute Display Names
+oDisp.PutEx 3,"attributeDisplayNames" , Array("BudgetCode,BudgetCode")
+oDisp.SetInfo
+
+'Add this field to the Right-Click Context Menu
+iCount = 0
+If Not IsEmpty(oDisp.shellContextMenu) Then
+  aMenu = oDisp.GetEx("shellContextMenu")
+  iCount = iCount + 1
+End If
+sNewMenu = CStr(iCount) & ",&Budget code…,budgetshell.vbs"
+oDisp.PutEx 3,"shellContextMenu" , Array(sNewMenu)
+oDisp.SetInfo
+Set sOutFile = oFileSystem.CreateTextFile(sSystemFolder & "\budgetshell.vbs",True)
+sOutFile.WriteLine "Set Args = Wscript.Arguments"
+sOutFile.WriteLine "Set oUser = GetObject(Args(0))"
+sOutFile.WriteLine "MsgBox " & Chr(34) & "Budget Code" & Chr(34) & " & vbCRLF & " &
+Chr(34) & "Budget Code: " & Chr(34) & " & oUser.BudgetCode & vbCRLF & " & Chr(34)
+sOutFile.WriteLine "Set oUser = Nothing"
+sOutFile.WriteLine "WScript.Quit"
+sOutFile.Close
+'Allow for updates
+iCount = 0
+If Not IsEmpty(oDisp.adminContextMenu) Then
+  aMenu = oDisp.GetEx("adminContextMenu")
+  iCount = iCount + 1
+End If
+sNewMenu = CStr(iCount) & ",&Budget Code…,budgetadmin.vbs"
+oDisp.PutEx 3,"adminContextMenu" , Array(sNewMenu)
+oDisp.SetInfo
+MsgBox " Adding Admin Context Menu Program"
+Set sOutFile = oFileSystem.CreateTextFile(sSystemFolder & "\budgetadmin.vbs",True)
+sOutFile.WriteLine "Set Args = Wscript.Arguments"
+sOutFile.WriteLine "Set oUser = GetObject(Args(0))"
+sOutFile.WriteLine "temp = InputBox(" & Chr(34) & "Current Budget Code: " & Chr(34)
+& " & oUser.BudgetCode & vbCRLF & " & Chr(34) & "New Budget Code" & Chr(34) & ")"
+sOutFile.WriteLine "if temp <> " & Chr(34) & Chr(34) & " then oUser.Put " & Chr(34)
+& "BudgetCode" & Chr(34) & ",temp"sOutFile.WriteLine "oUser.SetInfo"
+sOutFile.WriteLine "Set oUser = Nothing"
+sOutFile.WriteLine "WScript.Quit"
+sOutFile.Close
+Set oDisp = Nothing
+Set oCont = Nothing
+Set oRoot = Nothing
+Set oFileSystem = Nothing
+WScript.Quit
+    
+    
+====================================
+4, &Update Budget Information,\\dc1\share\updatebudget.vbs
+    
+    
+====================================
+dn: cn=adatum-LanguagesSpoken,cn=schema,cn=configuration,<ForestRootDN>
+changetype: modify
+replace: searchFlags
+searchFlags: 5
+-
+    
+    
+====================================
+> ldifde -v -i -f add_anr_attr.ldf
+    
+    
+====================================
+> admod -b <AttributeDN> searchFlags::5
+    
+    
+====================================
+' This code will make an attribute part of the ANR set.
+' ------ SCRIPT CONFIGURATION ------
+' Set to the common name (not LDAP display dame) of the attribute
+strAttrName = "<AttrCommonName>" ' e.g. adatum-LanguagesSpoken
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objAttr = GetObject("LDAP://cn=" & strAttrName & "," & _
+                        objRootDSE.Get("
+schemaNamingContext"))
+objAttr.Put "searchFlags", 5
+objAttr.SetInfo
+WScript.Echo "New ANR attribute: " & strAttrName
+    
+    
+====================================
+$strAttrName = "<AttrCommonName>"  # e.g. adatum-LanguagesSpoken
+
+$root = [ADSI]"LDAP://RootDSE"
+$objAttr = [ADSI]("LDAP://cn=" + $strAttrName + "," + $root.schemaNamingContext)
+$objAttr.put("searchFlags", $objAttr.searchFlags.Value -bor 5)
+$objAttr.setInfo()
+    
+    
+====================================
+adfind -sc anr
+    
+    
+====================================
+(&(objectcategory=attributeSchema)(!(searchFlags:1.2.840.113556.1.4.803:=4)))
+    
+    
+====================================
+dn: cn=<AttrCommonName>,cn=schema,cn=configuration,<ForestRootDN>
+changetype: modify
+replace:
+isMemberOfPartialAttributeSet
+isMemberOfPartialAttributeSet: TRUE
+-
+    
+    
+====================================
+> ldifde -v -i -f add_gc_attr.ldf
+    
+    
+====================================
+> admod -schema -rb cn=<AttrCommonName> isMemberOfPartialAttributeSet::TRUE
+    
+    
+====================================
+' This code adds an attribute to the global catalog.
+' ------ SCRIPT CONFIGURATION ------
+' Set to the common name (not LDAP display name) of the attribute.
+strAttrName = "<AttrCommonName>" ' e.g. User
+' Set to TRUE to add to GC, set to FALSE to remove from GC
+boolAddtoGC = TRUE
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objAttr = GetObject("LDAP://cn=" & strAttrName & "," & _
+                        objRootDSE.Get("schemaNamingContext"))
+objAttr.Put "isMemberOfPartialAttributeSet", boolAddtoGC
+objAttr.SetInfo
+WScript.Echo "Added attribute to GC: " & strAttrName
+    
+    
+====================================
+$boolAddToGC = $true
+$attr = get-QADobject -Identity 'cn=<Attribute
+Name>,cn=schema,cn=configuration,<ForestRootDN> -IncludedProperties
+'isMemberOfPartialAttributeSet'
+$attr.isMemberOfPartialAttributeSet = $boolAddToGC
+    
+    
+====================================
+$strAttrName = "<AttrCommonName>"  # e.g. adatum-LanguagesSpoken
+$boolAddToGC = $true   ## $true to "Add", $false to "Remove"
+$root = [ADSI] "LDAP://RootDSE"
+$objAttr = [ADSI]("LDAP://cn=" + $strAttrName + "," + $root.schemaNamingContext)
+$objAttr.Put("isMemberOfPartialAttributeSet", $boolAddToGC)
+$objAttr.setInfo()
+    
+    
+====================================
+adfind -sc pas
+    
+    
+====================================
+(isMemberOfPartialAttributeSet=FALSE)
+    
+    
+====================================
+(&(objectcategory=attributeSchema)(systemFlags:1.2.840.113556.1.4.803:=1))
+    
+    
+====================================
+(&(objectcategory=attributeSchema)(systemFlags:1.2.840.113556.1.4.803:=4))
+    
+    
+====================================
+> dsquery * cn=schema,cn=configuration,<ForestRootDN> -attr "cn" -filter
+"(&(objectcategory=attributeSchema)(systemFlags:1.2.840.113556.1.4.803:=1))"
+    
+    
+====================================
+> adfind -sc norepl
+    
+    
+====================================
+> dsquery * cn=schema,cn=configuration,<ForestRootDN> -attr "cn" -filter
+"(&(objectcategory=attributeSchema)(systemFlags:1.2.840.113556.1.4.803:=4))"
+    
+    
+====================================
+> adfind -sc constructed
+    
+    
+====================================
+' This script will print out the nonreplicated
+' and constructed attributes.
+set objRootDSE = GetObject("LDAP://RootDSE")
+strBase = "<LDAP://" & objRootDSE.Get("SchemaNamingContext") & ">;"
+strFilter = "(&(objectcategory=attributeSchema)" _
+          & "(
+systemFlags:1.2.840.113556.1.4.803:=1));"
+strAttrs = "cn;"
+strScope = "onelevel"
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+WScript.Echo "Nonreplicated attributes: "
+while Not objRS.EOF
+    Wscript.Echo " " & objRS.Fields(0).Value
+    objRS.MoveNext
+wend
+
+strFilter = "(&(objectcategory=attributeSchema) " _
+          & "(systemFlags:1.2.840.113556.1.4.803:=4));"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+WScript.Echo ""
+WScript.Echo "
+Constructed attributes: "
+while Not objRS.EOF
+    Wscript.Echo " " & objRS.Fields(0).Value
+    objRS.MoveNext
+wend
+    
+    
+====================================
+"Non-Replicated Attributes:"
+get-QADObject -SearchRoot "cn=schema,cn=configuration,<ForestRootDN>" -LdapFilter
+"(&(objectcategory=attributeSchema)(systemFlags:1.2.840.113556.1.4.803:=1))"
+
+"Constructed Attributes:"
+get-QADObject -SearchRoot "cn=schema,cn=configuration,<ForestRootDN>" -LdapFilter
+"(&(objectcategory=attributeSchema)(systemFlags:1.2.840.113556.1.4.803:=4))"
+
+function search([string]$searchDN, [string]$localfilter)
+{
+    $searcher = New-Object System.DirectoryServices.DirectorySearcher
+    $searcher.SearchRoot = [ADSI]("LDAP://" + $searchDN)
+    $searcher.PageSize = 1000
+    $searcher.Filter = $localfilter
+
+    return $searcher.FindAll()
+}
+
+$root = [ADSI]"LDAP://RootDSE"
+$filter = "(&(objectCategory=attributeSchema)(systemFlags:1.2.840.113556.1.4.803:="
+
+"Non-Replicated Attributes"
+search $root.schemaNamingContext ($filter + "1))")
+
+"Constructed Attributes"
+search $root.schemaNamingContext ($filter + "4))")
+    
+    
+====================================
+(&(objectcategory=attributeSchema)(linkid=*))
+    
+    
+====================================
+> dsquery * cn=schema,cn=configuration,<ForestRootDN> -scope onelevel -filter
+"(&(objectcategory=attributeSchema)(linkid=*))" -attr cn linkID
+    
+    
+====================================
+> adfind -sc linked
+    
+    
+====================================
+' This code prints out all of the attributes that are linked
+' and their corresponding linkID values.
+set objRootDSE = GetObject("LDAP://RootDSE")
+strBase   = "<LDAP://" & objRootDSE.Get("SchemaNamingContext") & ">;"
+strFilter = "(&(objectcategory=attributeSchema)(linkid=*));"
+strAttrs  = "cn,linkid;"
+strScope  = "onelevel"
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+while Not objRS.EOF
+    Wscript.Echo objRS.Fields(1).Value & " : " & objRS.Fields(0).Value
+    objRS.MoveNext
+wend
+    
+    
+====================================
+get-QADObject -SearchRoot "cn=schema,cn=configuration,<ForestRootDN>" -LdapFilter
+"(&(objectcategory=attributeSchema)(linkId=*))"
+
+function search([string]$searchDN, [string]$localfilter)
+{
+    $searcher = New-Object System.DirectoryServices.DirectorySearcher
+    $searcher.SearchRoot = [ADSI]("LDAP://" + $searchDN)
+    $searcher.PageSize = 1000
+    $searcher.SearchScope = [System.DirectoryServices.SearchScope]::OneLevel
+    $searcher.Filter = $localfilter
+
+    return $searcher.FindAll()
+}
+
+$root = [ADSI]"LDAP://RootDSE"
+$filter = "(&(objectcategory=attributeSchema)(linkId=*))"
+
+$results = search $root.schemaNamingContext $filter
+foreach ($r in $results) {
+    $r.Properties.cn.Item(0).ToString() + " : " + $r.Properties.linkid.Item(0)
+}
+    
+    
+====================================
+> dsquery * cn=schema,cn=configuration,<ForestRootDN> -limit 0 -scope onelevel
+-filter "(objectcategory=classSchema)" -attr lDAPDisplayName objectclasscategory
+    
+    
+====================================
+> adfind -schema -f "(objectcategory=classSchema)" lDAPDisplayName
+objectClassCategory
+    
+    
+====================================
+' This code prints out classes of a particular type
+' ------ SCRIPT CONFIGURATION ------
+' Set the following to TRUE or FALSE depending if you want to
+' view or not view classes of the type defined by the variable
+boolShowStructural = TRUE
+boolShowStructural = TRUE
+boolShowAuxiliary  = TRUE
+boolShowAbstract   = TRUE
+boolShow88         = TRUE
+' ------ END CONFIGURATION ---------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objSchemaCont = GetObject("LDAP://cn=schema," & _
+                              objRootDSE.Get("configurationNamingContext"))
+objSchemaCont.Filter = Array("classSchema")
+WScript.Echo "Loading classes, this will take a few seconds."
+for each objClass in objSchemaCont
+   WScript.StdOut.Write(".")
+   if objClass.Get("
+objectClassCategory") = 0 then
+      str88 = str88 & vbTab & objClass.Get("lDAPDisplayName") & vbCrlf
+   elseif objClass.Get("objectClassCategory") = 1 then
+      strStruct = strStruct & vbTab & _
+                  objClass.Get("lDAPDisplayName") & vbCrlf
+   elseif objClass.Get("objectClassCategory") = 2 then
+      strAbst = strAbst & vbTab & objClass.Get("lDAPDisplayName") & vbCrlf
+   elseif objClass.Get("objectClassCategory") = 3 then
+      strAux = strAux & vbTab & objClass.Get("lDAPDisplayName") & vbCrlf
+   else
+      WScript.Echo "Unknown class type: " & _
+                   objClass.Get("lDAPDisplayName") & vbCrlf
+   end if
+next
+WScript.Echo vbCrlf
+
+if boolShowStructural = TRUE then
+   WScript.Echo " Structural Classes: "
+   WScript.Echo strStruct
+   WScript.Echo
+end if
+
+if boolShowAbstract = TRUE then
+   WScript.Echo " Abstract Classes: "
+   WScript.Echo strAbst
+   WScript.Echo
+end if
+
+if boolShowAuxiliary = TRUE then
+   WScript.Echo "Auxiliary Classes: "
+   WScript.Echo strAux
+   WScript.Echo
+end if
+
+if boolShow88 = TRUE then
+   WScript.Echo "88 Classes: "
+   WScript.Echo str88
+   WScript.Echo
+end if
+    
+    
+====================================
+$str88 = 0
+$strStruct = 1
+$strAbstr = 2
+$strAux = 3
+Write-Host "88 classes:"
+get-QADObject -SearchRoot "cn=schema,cn=configuration,<ForestRootDN>" -LdapFilter
+"(&(objectcategory=classSchema)(objectClassCategory=$str88))"
+Write-Host "Structural classes:"
+get-QADObject -SearchRoot "cn=schema,cn=configuration,<ForestRootDN>" -LdapFilter
+"(&(objectcategory=classSchema)(objectClassCategory=$strStruct))"
+Write-Host "Abstract classes:"
+get-QADObject -SearchRoot "cn=schema,cn=configuration,<ForestRootDN>" -LdapFilter
+"(&(objectcategory=classSchema)(objectClassCategory=$strAbstr))"
+Write-Host "Auxilliary classes:"
+get-QADObject -SearchRoot "cn=schema,cn=configuration,<ForestRootDN>" -LdapFilter
+"(&(objectcategory=classSchema)(objectClassCategory=$strAux))"
+
+function search([string]$searchDN, [string]$localfilter)
+{
+    $searcher = New-Object System.DirectoryServices.DirectorySearcher
+    $searcher.SearchRoot = [ADSI]("LDAP://" + $searchDN)
+    $searcher.PageSize = 1000
+    $searcher.Filter = $localfilter
+
+    return $searcher.FindAll()
+}
+function display ($results)
+{
+    foreach ($r in $results) {
+        "`t" + $r.Properties.ldapdisplayname.Item(0)
+    }
+}
+
+$root = [ADSI]"LDAP://RootDSE"
+$filter = "(&(objectcategory=classSchema)(objectClassCategory="
+
+"88 Classes:"
+display (search $root.schemaNamingContext ($filter + "0))"))
+
+"Structural Classes:"
+display (search $root.schemaNamingContext ($filter + "1))"))
+
+"Abstract Classes:"
+display (search $root.schemaNamingContext ($filter + "2))"))
+
+"Auxilliary Classes:"
+display (search $root.schemaNamingContext ($filter + "3))"))
+    
+    
+====================================
+> dsquery * cn=<ClassCommonName>,cn=schema,cn=configuration,<ForestRootDN> -l
+-attr mayContain mustContain systemMayContain systemMustContain
+    
+    
+====================================
+> adfind -schema -rb cn=<ClassCommonName> mayContain mustContain systemMayContain
+systemMustContain
+    
+    
+====================================
+' This code displays the mandatory and optional attributes for a class.
+' ------ SCRIPT CONFIGURATION -----
+' Set to common name of class to view
+strClassName = "<ClassCommonName>" ' e.g. Surname
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objClass = GetObject("LDAP://cn=" & strClassName & "," & _
+                         objRootDSE.Get("schemaNamingContext"))
+
+WScript.Echo "Class: " & strClassName & vbCrlf
+
+' Need to enable this so that if an attribute is not set, the code won't fail
+on error resume next
+
+WScript.Echo "mayContain:"
+for each strVal in objClass.Get("mayContain")
+   WScript.Echo vbTab & strVal
+next
+
+WScript.Echo vbCrlf & "systemMayContain:"
+for each strVal in objClass.Get("systemMayContain")
+   WScript.Echo vbTab & strVal
+next
+
+WScript.Echo vbCrlf & "mustContain:"
+for each strVal in objClass.Get("mustContain")
+   WScript.Echo vbTab & strVal
+next
+
+WScript.Echo vbCrlf & "systemMustContain:"
+for each strVal in objClass.Get("systemMustContain")
+   WScript.Echo vbTab & strVal
+next
+    
+    
+====================================
+$obj = get-QADObject -Identity "cn=<Class Name>,cn=schema,cn=configuration,Forest
+Root DN>" -IncludedProperties maycontain, mustcontain, systemmaycontain,
+systemmustcontain
+$obj.mayContain
+$obj.mustContain
+$obj.systemMayContain
+$obj.systemMustContain
+
+$strClassName = "<ClassCommonName>"  # e.g. User
+#
+$root = [ADSI] "LDAP://RootDSE"
+
+$obj = [ADSI]( "LDAP://cn=" + $strClassName + "," + $root.schemaNamingContext)
+"mayContain: "
+foreach ($val in $obj.mayContain) { "`t" + $val; }
+"`nmustContain: "
+foreach ($val in $obj.mustContain) { "`t" + $val; }
+"`nsystemMayContain: "
+foreach ($val in $obj.systemMayContain) { "`t" + $val; }
+"`nsystemMustContain: "
+foreach ($val in $obj.systemMustContain) { "`t" + $val; }
+    
+    
+====================================
+> admod -schema -rb cn=<ClassShortName>
+defaultSecurityDescriptor::"O:AOG:DAD:(A;;RPWPCCDCLCSWRCWDWOGA;;;S-1-0-0)"
+    
+    
+====================================
+' This code modifies the defaultSecurityDescriptor of a class
+' ------ SCRIPT CONFIGURATION -----
+' Set to the common name (not LDAP display dame) of the class
+strClassName = "<ClassCommonName>" ' e.g. User
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objClass = GetObject("LDAP://cn=" & strAttrName & "," & _
+                         objRootDSE.Get("schemaNamingContext"))
+objClass.Put "defaultSecurityDescriptor", _
+  "O:AOG:DAD:(A;;RPWPCCDCLCSWRCWDWOGA;;;S-1-0-0)"
+objClass.SetInfo
+WScript.Echo "Default Security Descriptor modified"
+    
+    
+====================================
+get-QADObject -Identity "cn=<Class Name>,cn=schema,cn=configuration,<Forest Root 
+ DN>" -IncludeAllProperties | set-QADObject -ObjectAttributes
+@{defaultSecurityDescriptor=" O:AOG:DAD:(A;;RPWPCCDCLCSWRCWDWOGA;;;S-1-0-0)"}
+
+$strClassName = "<ClassCommonName>"  # e.g. User
+
+# what is the new default security for the object?
+$strSDDL = O:AOG:DAD:(A;;RPWPCCDCLCSWRCWDWOGA;;;S-1-0-0)"
+
+$root = [ADSI]"LDAP://RootDSE"
+
+$obj = [ADSI]("LDAP://cn=" + $strClassName + "," + $root.schemaNamingContext)
+$obj.Put("defaultSecurityDescriptor", $strSDDL)
+$obj.SetInfo()
+    
+    
+====================================
+"O:AOG:DAD:(A;;RPWPCCDCLCSWRCWDWOGA;;;S-1-0-0)"
+    
+    
+====================================
+admod -schema -rb cn=<AttrName> searchFlags::128
+    
+    
+====================================
+' This code safely modifies the
+' confidentiality bit of an attribute.
+' ------ SCRIPT CONFIGURATION ------
+strAttribute = "<schemaAttributeDN>"
+ ' e.g. "cn=SalesUser-Description,cn=Schema,
+ ' cn=Configuration,dc=adatum,dc=com"
+strAttr = "searchFlags"         ' e.g. adatum-UserProperties
+boolEnableBit = <TRUEorFALSE>   ' e.g. TRUE
+intBit = 128
+' ------ END CONFIGURATION --------
+
+set objAttribute = GetObject("LDAP://" & strAttribute)
+intBitsOrig = objAttribute.Get(strAttr)
+intBitsCalc = CalcBit(intBitsOrig, intBit, boolEnableBit)
+
+if intBitsOrig <> intBitsCalc then
+   objObject.Put strAttr, intBitsCalc
+   objObject.SetInfo
+   WScript.Echo "Changed " & strAttr & " from " & intBitsOrig & " to " & intBitsCalc
+else
+   WScript.Echo "Did not need to change " & strAttr & " (" & intBitsOrig & ")"
+end if
+
+Function CalcBit(intValue, intBit, boolEnable)
+
+   CalcBit = intValue
+
+   if boolEnable = TRUE then
+      CalcBit = intValue Or intBit
+   else
+      if intValue And intBit then
+         CalcBit = intValue Xor intBit
+      end if
+   end if
+
+End Function
+    
+    
+====================================
+$objAttr = [ADSI] "LDAP://cn=<AttrName>,cn=schema,cn=Configuration,<ForestRootDN>"
+$currentSearchFlags = $objAttr.searchFlags.Value
+$newSearchFlags = $currentSearchFlags -bor 128
+$objAttr.put("searchFlags", $newSearchFlags)
+$objAttr.setInfo()
+    
+    
+====================================
+admod -schema -rb cn=<AttrName> searchFlags::512
+    
+    
+====================================
+' This code safely adds an attribute to the Read-Only Filtered Attribute Set.
+' ------ SCRIPT CONFIGURATION ------
+strAttribute = "<schemaAttributeDN>"
+ ' e.g. "cn=adatum-EmplID,cn=Schema,
+ ' cn=Configuration,dc=adatum,dc=com"
+strAttr = "searchFlags"
+boolEnableBit = <TRUEorFALSE> ' e.g. TRUE
+intBit = 512
+' ------ END CONFIGURATION --------
+
+set objAttribute = GetObject("LDAP://" & strAttribute)
+intBitsOrig = objAttribute.Get(strAttr)
+intBitsCalc = CalcBit(intBitsOrig, intBit, boolEnableBit)
+
+if intBitsOrig <> intBitsCalc then
+   objObject.Put strAttr, intBitsCalc
+   objObject.SetInfo
+   WScript.Echo "Changed " & strAttr & " from " & intBitsOrig & " to " & intBitsCalc
+else
+   WScript.Echo "Did not need to change " & strAttr & " (" & intBitsOrig & ")"
+end if
+
+Function CalcBit(intValue, intBit, boolEnable)
+
+   CalcBit = intValue
+
+   if boolEnable = TRUE then
+      CalcBit = intValue Or intBit
+   else
+      if intValue And intBit then
+         CalcBit = intValue Xor intBit
+      end if
+   end if
+
+End Function
+    
+    
+====================================
+$objAttr = [ADSI] "LDAP://cn=<AttrName>,cn=schema,cn=Configuration,<ForestRootDN>"
+$currentSearchFlags = $objAttr.searchFlags.Value
+$newSearchFlags = $currentSearchFlags -bor 512
+$objAttr.put("searchFlags", $newSearchFlags)
+$objAttr.setInfo()
+    
+    
+====================================
+dn: cn=<SchemaObjectCommonName>,cn=schema,cn=configuration,<ForestRootDN>
+changetype: modify
+replace: isDefunct
+isDefunct: TRUE
+-
+    
+    
+====================================
+> ldifde -v -i -f deactivate_class.ldf
+    
+    
+====================================
+> admod -schema -rb cn=<SchemaObjectCommonName>
+isDefunct::TRUE
+    
+    
+====================================
+' This code deactivates a
+' class or attribute.
+' ------ SCRIPT CONFIGURATION ------
+strName = "<SchemaObjectCommonName>" ' e.g. adatum-LanguagesSpoken
+' ------ END CONFIGURATION --------
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objSchemaObject = GetObject("LDAP://cn=" & strName & "," & _
+                                objRootDSE.Get("schemaNamingContext"))
+objSchemaObject.Put "isDefunct", TRUE
+objSchemaObject.SetInfo
+WScript.Echo "Schema object deactivated: " & strName
+    
+    
+====================================
+get-QADObject -Identity "cn=<ObjectName>,cn=schema,cn=configuration,<ForestRootDN>
+-IncludedProperties 'isDefunct' | set-QADObject -ObjectAttributes
+@{isDefunct="TRUE"}
+    
+    
+====================================
+$obj = [ADSI] "LDAP://cn=<ObjectName>,cn=schema,cn=configuration,<ForestRootDN>"
+$obj.put("isDefunct", $true)
+$obj.SetInfo()
+    
+    
+====================================
+dn:
+changetype: modify
+add: schemaUpdateNow
+schemaUpdateNow: 1
+-
+    
+    
+====================================
+> ldifde -v -i -f reload.ldf
+    
+    
+====================================
+> admod -sc refreshschema
+    
+    
+====================================
+set objRootDSE = GetObject("LDAP://dc1/RootDSE")
+objRootDSE.Put "schemaUpdateNow", 1
+objRootDSE.SetInfo
+WScript.Echo "Schema reloaded"
+    
+    
+====================================
+$objRootDSE = [ADSI] "LDAP://<DCName>/RootDSE" # Specify the Schema Master FSMO
+$objRootDSE.put("schemaUpdateNOW", 1)
+$objRootDSE.SetInfo()
+    
+    
+====================================
+dn: cn=adatum-TestAttr,cn=schema,cn=configuration,dc=adatum,dc=com
+changetype: add
+objectclass: attributeSchema
+lDAPDisplayName: adatum-TestAttr
+attributeId: 1.3.6.1.4.1.999.1.1.28.312
+oMSyntax: 20
+attributeSyntax: 2.5.5.4
+isSingleValued: FALSE
+searchFlags: 1
+
+dn:
+changetype: modify
+add: schemaUpdateNow
+schemaUpdateNow: 1
+-
+
+dn: cn=adatum-TestClass,cn=schema,cn=configuration,dc=adatum,dc=com
+changetype: add
+objectclass: classSchema
+lDAPDisplayName: adatum-TestClass
+governsId: 1.3.6.1.4.1.999.1.1.28.311
+subClassOf: top
+objectClassCategory: 3
+mayContain: adatum-TestAttr
+    
+    
+====================================
+> dsquery server -hasfsmo schema
+> adfind -sc fsmo:schema
+    
+    
+====================================
+> ntdsutil roles conn "co t s <NewRoleOwner>" q "transfer Schema Master" q q
+    
+    
+====================================
+> ntdsutil roles conn "co t s <NewRoleOwner>" q "seize Schema Master" q q
+    
+    
+====================================
+' This code prints the Schema Master role owner for the specified forest.
+
+strSchemaDN = objRootDSE.Get("schemaNamingContext")
+
+' Schema Master
+set objSchemaFsmo = GetObject("LDAP://" & strSchemaDN)
+Wscript.Echo "Schema Master: " & objSchemaFsmo.fsmoroleowner
+
+' This code transfers the Schema Master role to the local server
+Set dse = GetObject("LDAP://localhost/RootDSE")
+set myDomain = GetObject("LDAP://" & dse.get("defaultNamingContext"))
+dse.Put "becomeSchemaMaster",1
+dse.SetInfo
+
+' This code seizes the Schema Master role to another server
+set myDomain = GetObject("LDAP://" & dse.get("defaultNamingContext"))
+dse.Put "becomeSchemaMaster",1
+dse.SetInfo
+    
+    
+====================================
+$dcDSE = [ADSI]"LDAP://<DC>/rootDSE"
+$role = "becomeSchemaMaster" $dcDSE.put($role,1)
+$dcDSE.Setinfo()
+    
+    
+==================

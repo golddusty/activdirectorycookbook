@@ -1,0 +1,766 @@
+chapter: Replication
+==================
+> repadmin /showchanges <DestinationDC's FQDN> <SourceDCGUID> <NamingContext>
+    
+    
+====================================
+> repadmin /showchanges dc1.adatum.com 5f09d979-1795-4ca1-9fc3-04efd
+2bb721 dc=adatum,dc=com
+Building starting position from destination server dc1.adatum.com
+
+Source Neighbor:
+dc=adatum,dc=com
+==== INBOUND NEIGHBORS ======================================
+
+dc=adatum,dc=com
+    Default-First-Site-Name\DC2 via RPC
+        DC object GUID: 5f09d979-1795-4ca1-9fc3-04efd22bb721
+        Address: 5f09d979-1795-4ca1-9fc3-04efd22bb721._msdcs.adatum.com
+        DC invocationID: accbf436-4577-4191-9a42-16f49e01db5d
+        SYNC_ON_STARTUP DO_SCHEDULED_SYNCS WRITEABLE
+        USNs: 12384/OU, 12384/PU
+        Last attempt @ 2006-02-26 10:04:08 was successful.
+
+Destination's up-to-date vector:
+accbf436-4577-4191-9a42-16f49e01db5d @ USN 12393
+e197616c-7465-43f2-a502-bac90df20b09 @ USN 14059
+
+==== SOURCE DC: 5f09d979-1795-4ca1-9fc3-04efd22bb721._msdcs.adatum.com ====
+
+No Changes
+    
+    
+====================================
+> repadmin /showvector <NamingContextDN> <DC1Name>
+> repadmin /showvector <NamingContextDN> <DC2Name>
+    
+    
+====================================
+' This code prints the
+' up-to-dateness vector for the DCs defined in
+' the array arrDCList for the naming context defined by strNCDN.
+' ------ SCRIPT CONFIGURATION -----
+' Set to the DN of the naming context you want to check the DCs against
+strNCDN = "<NamingContextDN>" ' e.g. dc=amer,dc=adatum,dc=com
+' Enter 2 or more DCs to compare
+arrDCList = Array("<DC1Name>","<DC2Name>")
+' ------ END CONFIGURATION --------
+
+set objIadsTools = CreateObject("IADsTools.DCFunctions")
+
+for each strDC in arrDCList
+   WScript.Echo "
+Replication partner USNs for " & strDC & ":"
+   intUSN = objIadsTools.GetHighestCommittedUSN(Cstr(strDC),0)
+   if intUSN = -1 then
+      Wscript.Echo "Error retrieving USN: " & objIadsTools.LastErrorText
+      WScript.Quit
+   end if
+
+WScript.Echo vbTab & strDC & " = " & intUSN
+
+intRes = objIadsTools.GetReplicationUSNState(Cstr(strDC), _
+                                                Cstr(strNCDN),0,0)
+   if intRes = -1 then
+      Wscript.Echo "Error retrieving USNs: " & objIadsTools.LastErrorText
+      WScript.Quit
+   end if
+   for count = 1 to intRes
+      WScript.Echo vbTab & objIadsTools.ReplPartnerName(count) & _
+                " = " & objIadsTools.ReplPartnerUSN(count)
+   next
+   WScript.Echo
+next
+    
+    
+====================================
+Write-Host $domain =
+[System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+$NC = "DC={0}" -f ($domain.Name -replace "\.",",DC=")
+foreach($dc in $domain.DomainControllers)
+{
+   Write-Host "$($DC.Name)"
+   Write-Host "================"
+   $UDTV =  $dc.GetReplicationCursors($NC)
+   $GUID =
+@{n='DSA';e={if($_.SourceServer){$_.SourceServer}else{$_.SourceInvocationId}}}
+   $UDTV | Select-Object $GUID,UpToDatenessUsn,LastSuccessfulSyncTime | Sort-Object
+DSA -desc
+}
+    
+    
+====================================
+> repadmin /replsum
+
+Replication Summary Start Time: 2006-02-26 11:01:34
+
+Beginning data collection for replication summary, this may take awhile:
+  .....
+
+Source DC          largest delta  fails/total %% error
+ DC1                      15m:22s    0 /   3   0
+ DC2                         :12s    0 /   3   0
+
+Destination DC largest delta     fails/total %% error
+ DC1                       :05s     0 /   3   0
+ DC2                    15m:22s     0 /   3   0
+    
+    
+====================================
+> repadmin /replsum dc-rtp*
+    
+    
+====================================
+> repadmin /showchanges <DC1Name> <DC2GUID> <NamingContextDN>
+> repadmin /showchanges <DC2Name> <DC1GUID> <NamingContextDN>
+    
+    
+====================================
+> repadmin /getchanges <NamingContextDN> <DC1Name> <DC2GUID>
+> repadmin /getchanges <NamingContextDN> <DC2Name> <DC1GUID>
+    
+    
+====================================
+' This code uses the IADsTools interface to print the unreplicated
+' changes for the naming context defined by strNCDN for the DCs
+' defined by strDC1Name and strDC2Name.
+' ------ SCRIPT CONFIGURATION ------
+strNCDN     = "<NamingContextDN>"  ' e.g. dc=adatum,dc=com
+strDC1Name  = "<DC1Name>"          ' e.g. dc1.adatum.com
+strDC2Name  = "<DC2Name>"          ' e.g. dc2.adatum.com
+' ------ END CONFIGURATION ---------
+
+set objIadsTools = CreateObject("IADsTools.DCFunctions")
+
+' ----------------------------------
+' Have to get the GUIDs of both servers in order to identify
+' the correct partner in the GetReplicationUSNState call
+' ----------------------------------
+strDC1GUID = objIadsTools.GetGuidForServer(Cstr(strDC1Name), _
+                                           Cstr(strDC1Name),0)
+strDC2GUID = objIadsTools.GetGuidForServer(Cstr(strDC2Name), _
+                                           Cstr(strDC2Name),0)
+' ----------------------------------
+' Need to get what each DC thinks is the highest USN for the other
+' The USN is needed in the call to GetMetaDataDifferences to return
+' the unreplicated changes
+' ----------------------------------
+intRes = objIadsTools.GetReplicationUSNState(Cstr(strDC1Name), _
+                                             Cstr(strNCDN),0,0)
+if intRes = -1 then
+   Wscript.Echo objIadsTools.LastErrorText
+   WScript.Quit
+end if
+for count = 1 to intRes
+   if strDC2GUID = objIadsTools.ReplPartnerGuid(count) then
+      intDC2USN = objIadsTools.ReplPartnerUSN(count)
+   end if
+next
+if intDC2USN = "" then
+   WScript.Echo strDC2Name & " is not a replication partner with " & _
+                strDC1Name
+end if
+intRes = objIadsTools.GetReplicationUSNState(Cstr(strDC2Name), _
+                                             Cstr(strNCDN),0,0)
+if intRes = -1 then
+   Wscript.Echo objIadsTools.LastErrorText
+   WScript.Quit
+end if
+for count = 1 to intRes
+   if strDC1GUID = objIadsTools.ReplPartnerGuid(count) then
+      intDC1USN = objIadsTools.ReplPartnerUSN(count)
+   end if
+next
+if intDC2USN = "" then
+   WScript.Echo strDC1Name & " is not a replication partner with " & _
+                strDC2Name
+end if
+
+' ----------------------------------
+' Now that we have retrieved the highest USN for both partners,
+' the GetMetaDataDifferences method will return what needs to be
+' replicated
+' ----------------------------------
+intRes = objIadsTools.GetMetaDataDifferences(Cstr(strDC1Name), _
+                                             Cstr(intDC1USN), _
+                                             Cstr(strNCDN),0)
+if intRes = -1 then
+   Wscript.Echo objIadsTools.LastErrorText
+   WScript.Quit
+end if
+WScript.Echo "Data on " & strDC1Name & " but not " & strDC2Name & ":"
+for count = 1 to intRes
+   WScript.Echo count & ". " & _
+                   objIadsTools.MetaDataDifferencesObjectDN(count)
+   WScript.Echo vbTab & " Attribute: " & _
+                   objIadsTools.MetaDataDifferencesAttribute(count)
+   WScript.Echo vbTab & " Write time: " & _
+                   objIadsTools.MetaDataDifferencesLastWriteTime(count)
+   WScript.Echo vbTab & " Orig Server: " & _
+                   objIadsTools.MetaDataDifferencesOrigServer(count)
+   WScript.Echo vbTab & " Orig USN: " & _
+                   objIadsTools.MetaDataDifferencesOrigUSN(count)
+next
+WScript.Echo
+
+intRes = objIadsTools.GetMetaDataDifferences(Cstr(strDC2Name), _
+                                             Cstr(intDC2USN), _
+                                             Cstr(strNCDN), 0)
+if intRes = -1 then
+   Wscript.Echo objIadsTools.LastErrorText
+   WScript.Quit
+end if
+WScript.Echo "Data on " & strDC2Name & " but not " & strDC1Name & ":"
+for count = 1 to intRes
+   WScript.Echo count & ". " & _
+                 objIadsTools.MetaDataDifferencesObjectDN(count)
+   WScript.Echo vbTab & " Attribute: " & _
+                 objIadsTools.MetaDataDifferencesAttribute(count)
+   WScript.Echo vbTab & " Write time: " & _
+                 objIadsTools.MetaDataDifferencesLastWriteTime(count)
+   WScript.Echo vbTab & " Orig Server: " & _
+                 objIadsTools.MetaDataDifferencesOrigServer(count)
+   WScript.Echo vbTab & " Orig USN: " & _
+                 objIadsTools.MetaDataDifferencesOrigUSN(count)
+next
+    
+    
+====================================
+> repadmin /replicate <DC1Name> <DC2Name> <NamingContextDN>
+    
+    
+====================================
+> repadmin /sync <NamingContextDN> <DC1Name> <DC2GUID>
+    
+    
+====================================
+' This code initiates a replication event between two DCs
+' for a naming context
+' ------ SCRIPT CONFIGURATION -----
+strDC1Name = "<DC1Name>" ' e.g. dc1
+strDC2Name = "<DC2Name>" ' e.g. dc2
+strNamingContextDN = "<NamingContextDN>" ' e.g. dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+set objIadsTools = CreateObject("IADsTools.DCFunctions")
+intRes = objIadsTools.ReplicaSync(Cstr(strDC1Name),_
+                                  Cstr(strNamingContextDN),_
+                                  Cstr(strDC2Name), 0, 0)
+
+if intRes = -1 then
+   Wscript.Echo "Error: " & objIadsTools.LastErrorText
+else
+   WScript.Echo "Replication intitiated from " & strDC2Name & _
+                " to " & strDC1Name
+end if
+    
+    
+====================================
+$strDCname = <DomainDNSName>
+$context = New-Object
+System.DirectoryServices.ActiveDirectory.DirectoryContext('DirectoryServer',
+$strDCname)
+$dc =
+[System.DirectoryServices.ActiveDirectory.DomainController]::getDomainController
+($context)
+$strPartDN = "<Partition DN>"
+$dc.TriggerSyncReplicaFromNeighbors($strPartDN)
+    
+    
+====================================
+> repadmin /options +DISABLE_OUTBOUND_REPL
+    
+    
+====================================
+> repamin /options -DISABLE_OUTBOUND_REPL
+    
+    
+====================================
+> repadmin /options +DISABLE_INBOUND_REPL
+    
+    
+====================================
+> repadmin /options -DISABLE_INBOUND_REPL
+    
+    
+====================================
+> repadmin /options * +DISABLE_INBOUND_REPL
+    
+    
+====================================
+> reg add HKLM\System\CurrentControlSet\Services\NTDS\Parameters /v "Replicator
+notify pause after modify (secs)" /t REG_DWORD /d <NumSeconds>
+    
+    
+====================================
+' This code sets the intra-site delay interval.
+' ------ SCRIPT CONFIGURATION -----
+strDC = "<DomainControllerName>" ' DC you want to configure
+intNumSeconds = <NumSeconds> ' Time in seconds to delay
+' ------ END CONFIGURATION --------
+
+const HKLM = &H80000002
+strNTDSReg = "SYSTEM\CurrentControlSet\Services\NTDS\Parameters"
+set objReg = GetObject("winmgmts:\\" & strDC & _
+                       "\root\default:StdRegProv")
+objReg.SetDWORDValue HKLM, strNTDSReg, _
+                     "Replicator notify pause after modify (secs)", _
+                     intNumSeconds
+WScript.Echo "Intra-site replication delay set to " & intNumSeconds
+    
+    
+====================================
+$strRegPath = "HKLM:\System\CurrentControlSet\Services\Netlogon\Parameters"
+$strKeyName = "Replicator notify pause after modify (secs)"
+$intSeconds = <NumSeconds>
+Set-ItemProperty -path $strRegPath -name $strKeyName -value $intSeconds
+    
+    
+====================================
+dn: <DomainPartitionCrossRefDN>
+changetype: modify
+replace: msDS-Replication-Notify-First-DSA-Delay
+msDS-Replication-Notify-First-DSA-Delay: <FirstDelayInSeconds>
+-
+replace: msDS-Replication-Notify-Subsequent-DSA-Delay
+msDS-Replication-Notify-Subsequent-DSA-Delay: <NextDelayInSeconds>
+    
+    
+====================================
+ldifde -i -v modify_replication_interval.ldf
+    
+    
+====================================
+admod -b cn=<DomainPartition>,cn=Partitions,cn=Configuration,<ForestRootDN> msDS-
+Replication-Notification-First-DSA-Delay::<FirstDelayInSeconds> msDS-
+Replication-Notify-Subsequent-DSA-Delay::<NextDelayInSeconds>
+    
+    
+====================================
+' This code sets the
+' replication delay for an application partition.
+' ------ SCRIPT CONFIGURATION -----
+strDomainPartDN = "<DomainPartitionDN>" ' e.g. cn=adatum,dc=adatum,dc=com
+intFirstDelay = <FirstDelayInSeconds>
+intNextDelay = <NextDelayInSeconds>
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+strBase = "<LDAP://cn=Partitions," & _
+          objRootDSE.Get("ConfigurationNamingContext") & ">;"
+strFilter = "(&(objectcategory=crossRef)(nCName=" & strDomainPartDN & "));"
+strAttrs = "cn,distinguishedName;"
+strScope = "onelevel"
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+
+if objRS.RecordCount <> 1 then
+   WScript.Echo "Did not find a match for " & strDomainPartDN
+else
+   objRS.MoveLast
+   set objAppPart = GetObject("LDAP://" & _
+                    objRS.Fields("distinguishedName").Value )
+   objAppPart.Put "msDS-Replication-Notify-First-DSA-Delay", intFirstDelay
+   objAppPart.Put "msDS-Replication-Notify-Subsequent-DSA-Delay", intNextDelay
+   objAppPart.SetInfo
+   Wscript.Echo "Modified " & objRS.Fields("distinguishedName").Value
+end if
+    
+    
+====================================
+set-QADObject -Identity
+cn==<DomainPartition>,cn=Partitions,cn=Configuration,<ForestRootDN> -
+ObjectAttributes @{ Replication-Notification-First-DSA-
+Delay="<FirstDelayInSeconds>";msDS-
+Replication-Notify-Subsequent-DSA-Delay::"<NextDelayInSeconds>"}
+
+$objPart = cn=<DomainPartition>,cn=Partitions,cn=Configuration,<ForestRootDN>
+$objPart.Put("Replication-Notification-First-DSA-Delay", "<FirstDelayInSeconds>")
+$objPart.Put("msDS-Replication-Notify-Subsequent-DSA-Delay",
+"<NextDelayInSeconds>")
+$objPart.SetInfo()
+    
+    
+====================================
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet
+\Services\NTDS\Parameters\Replicator notify pause after modify (secs)
+
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet
+\Services\NTDS\Parameters\Replicator notify pause between DSAs(secs)
+    
+    
+====================================
+dn: cn=<LinkName>,cn=ip,cn=Inter-Site Transports,cn=sites,
+cn=configuration,<ForestRootDN>
+changetype: modify
+replace: replInterval
+replInterval: <NewInterval>
+-
+    
+    
+====================================
+> ldifde -v -i -f set_link_rep_interval.ldf
+    
+    
+====================================
+> admod -b cn=<LinkName>,cn=ip,cn=Inter-Site
+Transports,cn=sites,cn=configuration,<ForestRootDN>
+replInterval::<NewInterval>
+    
+    
+====================================
+' This code sets the
+' replication interval for a site link.
+' ------ SCRIPT CONFIGURATION -----
+strLinkName    = "<LinkName>" ' cn of the link you want to configure
+intNewInterval = <NewInterval> ' replication interval in minutes
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objLink = GetObject("LDAP://cn=" & strLinkName & _
+                        ",cn=IP,cn=Inter-site Transports,cn=sites," & _
+                        objRootDSE.Get("configurationNamingContext") )
+objLink.Put "replInterval", intNewInterval
+objLink.SetInfo
+WScript.Echo "Set interval for link " & objLink.Get("cn") & _
+             " to " & intNewInterval
+    
+    
+====================================
+set-QADObject -Identity "cn=<LinkName>,cn=ip,cn=Inter-Site
+Transports,cn=sites,cn=configuration,<ForestRootDN>" -objectAttributes
+@{replInterval="<newInterval>"
+
+$objSiteLink = [ADSI] "cn=<LinkName>,cn=ip,cn=Inter-Site
+Transports,cn=sites,cn=configuration,<ForestRootDN>"
+$objSiteLink.Put("replInterval", "<newInterval>")
+$objSiteLink.SetInfo()
+    
+    
+====================================
+cn=IP,cn=Inter-site Transports,cn=Sites,cn=Configuration,<ForestRootDN>
+    
+    
+====================================
+> adfind -b cn=IP,cn=Inter-site Transports,cn=Sites,cn=Configuration,<ForestRootDN>
+options -adcsv | admod options::{{.:SET:4}}
+    
+    
+====================================
+' This code safely modifies a bit flag attribute
+' ------ SCRIPT CONFIGURATION ------
+strSiteLink = "cn=<LinkName>,cn=IP" &
+  ",cn=Inter-site Transports,cn=Sites,cn=Configuration,<ForestRootDN>"
+strAttr = "options"
+boolEnableBit = <TRUEorFALSE> ' e.g. FALSE
+intBit = 4
+' ------ END CONFIGURATION --------
+
+set objSiteLink = GetObject("LDAP://" & strSiteLink)
+intBitsOrig = objObject.Get(strAttr)
+intBitsCalc = CalcBit(intBitsOrig, intBit, boolEnableBit)
+
+if intBitsOrig <> intBitsCalc then
+   objSiteLink.Put strAttr, intBitsCalc
+   objSiteLink.SetInfo
+   WScript.Echo "Changed " & strAttr & " from " & intBitsOrig & " to " &
+intBitsCalc
+else
+   WScript.Echo "Did not need to change " & strAttr & " (" & intBitsOrig & ")"
+end if
+
+Function CalcBit(intValue, intBit, boolEnable)
+
+   CalcBit = intValue
+
+   if boolEnable = TRUE then
+      CalcBit = intValue Or intBit
+   else
+      if intValue And intBit then
+         CalcBit = intValue Xor intBit
+      end if
+   end if
+
+End Function
+    
+    
+====================================
+$objSiteLink = [ADSI]("LDAP:// cn=<LinkName>,cn=IP," +
+    "cn=Inter-site Transports,cn=Sites,cn=Configuration,<ForestRootDN>")
+$currentOptions = $objSiteLink.options.Value
+$newOptions = $currentOptions -bor 4
+$objSiteLink.Put("options", $newOptions)
+$objSiteLink.SetInfo()
+    
+    
+====================================
+> dcdiag /test:replications
+> repadmin /showrepl /errorsonly
+    
+    
+====================================
+> reg add HKLM\System\CurrentControlSet\Services\NTDS\Parameters /v "Strict
+Replication Consistency" /t REG_DWORD /d 1
+    
+    
+====================================
+> reg add HKLM\System\CurrentControlSet\Services\NTDS\Parameters /v "Strict
+Replication Consistency" /t REG_DWORD /d 0
+    
+    
+====================================
+repadmin /regkey <DCName> +strict
+repadmin /regkey <DCName> -strict
+    
+    
+====================================
+' This code enables strict or loose consistency on the specified DC.
+' ------ SCRIPT CONFIGURATION -----
+intEnableStrict = 1 ' 1 = strict consistency, 0 = loose consistency
+strDC = "<DomainControllerName>"
+' ------ END CONFIGURATION --------
+
+const HKLM = &H80000002
+strNTDSReg = "SYSTEM\CurrentControlSet\Services\NTDS\Parameters"
+set objReg = GetObject("winmgmts:\\" & strDC & _
+                       "\root\default:StdRegProv")
+objReg.SetDWORDValue HKLM, strNTDSReg, "
+Strict Replication Consistency", _
+                     intEnableStrict
+WScript.Echo "Strict Replication Consistency value set to " & _
+             intEnableStrict
+    
+    
+====================================
+$strRegPath = "HKLM:\System\CurrentControlSet\Services\NTDS\Parameters"
+Set-ItemProperty -path $strRegPath -name "Strict Replication Consistency" -value
+"1"
+    
+    
+====================================
+> dsquery * forestroot -gc -attr distinguishedName -scope subtree -filter
+"(name=*\0ACNF:*)"
+    
+    
+====================================
+> adfind -b -gc -f "(name=*\0ACNF:*)" -dn
+    
+    
+====================================
+' This code finds any
+' conflict objects in a forest.
+' If the search times out, you may need to change strBase to
+' a specific OU or container
+' ------ SCRIPT CONFIGURATION ------
+strBase = "<GC://" & "<ForestRootDN>" & ">;"
+' ------ END CONFIGURATION --------
+
+strFilter = "(name=*\0ACNF:*);"
+strAttrs = "distinguishedName;"
+strScope = "Subtree"
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open
+Set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+
+WScript.Echo objRS.RecordCount & "
+conflict objects found"
+while not objRS.EOF
+  Wscript.Echo objRS.Fields.Item("distinguishedName").Value
+  objRS.MoveNext
+wend
+    
+    
+====================================
+get-QADObject -ldapfilter 'name=*\0ACNF:*'
+    
+    
+====================================
+$strFilter = "name=*\0ACNF:*"
+$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objDomain
+$objSearcher.Filter = ($strFilter)
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+<ObjectName>\0CNF:<ObjectGUID>
+    
+    
+====================================
+> dsquery * cn=LostAndFound,<DomainDN> -scope onelevel -attr *
+    
+    
+====================================
+> adfind -default -rb cn=LostAndFound -s onelevel
+    
+    
+====================================
+' Using "" for the second parameter means that there will be no
+' indentation for the first level of objects displayed.
+DisplayLostAndFound "LDAP://cn=LostAndFound,<DomainDN>", ""
+
+' DisplayLostAndFound takes the ADsPath of the
+LostAndFound container
+' and recursively displays all objects contained within it
+Function DisplayLostAndFound( strADsPath, strSpace)
+   set objObject = GetObject(strADsPath)
+   Wscript.Echo strSpace & strADsPath
+   for each objChildObject in objObject
+      DisplayLostAndFound objChildObject.ADsPath, strSpace & " "
+   next
+End Function
+    
+    
+====================================
+get-QADObject -searchroot 'cn=LostAndFound,<DomainDN>' -searchScope 'OneLevel'
+    
+    
+====================================
+$objRoot = [ADSI] "LDAP://cn=LostAndFound,<DomainDN>"
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objRoot
+$objSearcher.SearchScope = [System.DirectoryServices.SearchScope]::OneLevel
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+> dsquery * "cn=NTDS Settings,cn=<DCName>,cn=Servers,cn=<SiteName>,
+cn=Sites,cn=Configuration,<ForestRootDN> -filter (objectcategory=NTDSConnection)
+-attr *
+    
+    
+====================================
+> adfind -config -rb "cn=NTDS
+Settings,cn=<DCName>,cn=Servers,cn=<SiteName>,cn=Sites"
+-f (objectcategory=NTDSConnection)
+    
+    
+====================================
+' This code searches for ntdsConnection Objects within the Sites container.
+' ------ SCRIPT CONFIGURATION ------
+strSite = "<SiteName>" ' e.g. "cn=Raleigh"
+strForestDN = "<ForestRootDN>" ' e.g. "dc=adatum,dc=com"
+strBaseDN = "<LDAP://" & strSite & _
+            ",cn=Sites,cn=Configuration," & strForestDN & ">;"
+            ' BaseDN should be the search base
+strFilter = "(objectclass=NTDSConnection);"
+strAttrs = "fromServer;"
+strScope = "Subtree"
+' ------ END CONFIGURATION ---------
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBaseDN & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+While Not objRS.EOF
+    Wscript.Echo objRS.Fields(0).Value
+    objRS.MoveNext
+Wend
+WScript.Echo("Search complete!")
+    
+    
+====================================
+$strdcName = "win2003-dc.essential.local"
+
+$cType = [DirectoryServices.ActiveDirectory.DirectoryContextType]::DirectoryServer
+$context = new-object DirectoryServices.ActiveDirectory.DirectoryContext($cType,
+$strDCname)
+$dc =
+[DirectoryServices.ActiveDirectory.DomainController]::GetDomainController($context)
+$dc.GetAllReplicationNeighbors()
+    
+    
+====================================
+> repadmin /showobjmeta <DomainControllerName> <ObjectDN>
+    
+    
+====================================
+> adfind -sc objmeta:<ObjectDN>
+    
+    
+====================================
+> adfind -sc objsmeta:<ContainerDN>
+    
+    
+====================================
+' This code displays the metadata for the specified object.
+' ------ SCRIPT CONFIGURATION -----
+strObjectDN = "<ObjectDN>"       ' e.g. dc=adatum,dc=com
+strDC = "<DomainControllerName>" ' e.g. dc1
+' ------ END CONFIGURATION --------
+
+set objIadsTools = CreateObject("IADsTools.DCFunctions")
+intRes = objIadsTools.
+GetMetaData(Cstr(strDC),Cstr(strObjectDN),0)
+
+if intRes = -1 then
+   Wscript.Echo objIadsTools.LastErrorText
+   WScript.Quit
+end if
+
+for count = 1 to intRes
+   WScript.Echo count & ". " & objIadsTools.MetaDataName(count)
+   WScript.Echo vbTab & " Version: " & _
+                              objIadsTools.MetaDataVersionNumber(count)
+   WScript.Echo vbTab & " Last Write: " & _
+                              objIadsTools.MetaDataLastWriteTime(count)
+   WScript.Echo vbTab & " Local USN: " & _
+                              objIadsTools.MetaDataLocalUSN(count)
+   WScript.Echo vbTab & " Source USN: " & _
+                              objIadsTools.MetaDataSourceUSN(count)
+   WScript.Echo vbTab & " Server: " & _
+                              objIadsTools.MetaDataServerName(count)
+next
+    
+    
+====================================
+$strdcName = "<DC FQDN>"
+
+$cType = [DirectoryServices.ActiveDirectory.DirectoryContextType]::DirectoryServer
+$context = new-object DirectoryServices.ActiveDirectory.DirectoryContext($cType,
+$strDCname)
+$dc =
+[DirectoryServices.ActiveDirectory.DomainController]::GetDomainController($context)
+$configContainer = "CN=Configuration,{0}" -f ([ADSI]"").distinguishedName.Value
+$dc.GetReplicationMetadata($configContainer).cn
+    
+    
+====================================
+> adfind -default -rb cn=administrator,cn=users msds-replattributemetadata
+
+Using server: dc2.adatum.com:389
+Directory: Windows Server 2003
+Base DN: cn=administrator,cn=users,DC=adatum,DC=com
+
+dn:CN=Administrator,CN=Users,DC=adatum,DC=com
+>msDS-ReplAttributeMetaData: <DS_REPL_ATTR_META_DATA>
+     <pszAttributeName>isCriticalSystemObject</pszAttributeName>
+     <dwVersion>1</dwVersion>
+     <ftimeLastOriginatingChange>2006-02-26T14:24:08Z</ftimeLastOriginatingChange>
+     <uuidLastOriginatingDsaInvocationID>e197616c-7465-43f2-a502-
+bac90df20b09</uuidLastOriginatingDsaInvocationID>
+     <usnOriginatingChange>8194</usnOriginatingChange>
+     <usnLocalChange>7298</usnLocalChange>
+     <pszLastOriginatingDsaDN>CN=NTDS Settings,CN=DC1,CN=Servers,CN=Default-First-
+Site-Name,CN=Sites,CN=Configuration,DC=adatum,DC=com</pszLastOriginatingDsaDN>
+</DS_REPL_ATTR_META_DATA>
+>msDS-ReplAttributeMetaData: <DS_REPL_ATTR_META_DATA>
+    <pszAttributeName>objectCategory</pszAttributeName>
+    <dwVersion>1</dwVersion>
+    <ftimeLastOriginatingChange>2006-02-26T14:24:08Z</ftimeLastOriginatingChange>
+    <uuidLastOriginatingDsaInvocationID>e197616c-7465-43f2-a502-
+bac90df20b09</uuidLastOriginatingDsaInvocationID>
+    <usnOriginatingChange>8194</usnOriginatingChange>
+    <usnLocalChange>7298</usnLocalChange>
+    <pszLastOriginatingDsaDN>CN=NTDS Settings,CN=DC1,CN=Servers,CN=Default-First-
+Site-Name,CN=Sites,CN=Configuration,DC=adatum,DC=com</pszLastOriginatingDsaDN>
+</DS_REPL_ATTR_META_DATA>
+    
+    
+==================

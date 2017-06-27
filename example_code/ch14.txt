@@ -1,0 +1,389 @@
+chapter: Security and Authentication
+==================
+' Constants taken from ADS_AUTHENTICATION_ENUM
+
+ADS_SECURE_AUTHENTICATION = 1
+ADS_USE_SSL = 2
+
+'This code shows how to enable SSL and secure authentication using ADSI.
+set objLDAP = GetObject("LDAP:")
+set objOU = objLDAP.OpenDSObject("LDAP://ou=Sales,dc=adatum,dc=com", _
+                                 "administrator@adatum.com", _
+                                 "MyAdminPassword", _
+                                 ADS_SECURE_AUTHENTICATION + ADS_USE_SSL)
+WScript.Echo objOU.Get("ou")
+' This code shows how to enable SSL and secure authentication using ADO.
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Properties("User ID") = "administrator@adatum.com"
+objConn.Properties("Password") = "MyAdminPassword"
+objConn.Properties("Encrypt Password") = True
+objConn.Properties("ADSI Flag") = ADS_SECURE_AUTHENTICATION + ADS_USE_SSL
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute("<LDAP://cn=users,dc=adatum,dc=com>;" & _
+                            "(cn=*);" & "cn;" & "onelevel")
+objRS.MoveFirst
+while Not objRS.EOF
+    Wscript.Echo objRS.Fields(0).Value
+    objRS.MoveNext
+wend
+    
+    
+====================================
+$strRegPath =
+"HKLM:\Software\Microsoft\Windows\CurrentVersion\AdminDebug\ADsOpenObjectFlags"
+new-ItemProperty -path $strRegPath -name "ADsOpenObjectFlags" -type DWORD
+set-ItemProperty -path $strRegPath -name " ADsOpenObjectFlags" -value
+"<Signing/Encryption Setting>"
+    
+    
+====================================
+' This code enables or disables anonymous query mode for a forest.
+' ------ SCRIPT CONFIGURATION -----
+boolEnableAnonQuery = 2 ' e.g. 2 to enable, 0 to disable
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objDS = GetObject( _
+             "LDAP://cn=Directory Service,cn=Windows NT,cn=Services," _
+             & objRootDSE.Get("configurationNamingContext") )
+strDSH = objDS.Get("dSHeuristics")
+
+for i = len(strDSH) to 6
+   strDSH = strDSH & "0"
+next
+
+strNewDSH = Left(strDSH,6) & boolEnableAnonQuery
+strNewDSH = strNewDSH & Right(strDSH, len(strDSH) - 7 )
+
+WScript.Echo "Old value: " & strDSH
+WScript.Echo "New value: " & strNewDSH
+if strDSH <> strNewDSH then
+   objDS.Put "
+dSHeuristics", strNewDSH
+   objDS.SetInfo
+   WScript.Echo "Successfully set anon query mode to " & boolEnableAnonQuery
+else
+   WScript.Echo "Anon query mode already set to " & boolEnableAnonQuery
+end if
+    
+    
+====================================
+$root = [ADSI]"LDAP://RootDSE"
+$obj  = [ADSI]("LDAP://cn=Directory Service,cn=Windows NT,cn=Services," +
+        $root.configurationNamingContext)
+
+$dsHeuristics = $obj.dsHeuristics.value
+if ($dsHeuristics -eq $null)
+{
+    "dsHeuristics was null (not previously set)"
+    $dsHeuristics = "0000000"    # seven zeroes
+}
+
+$len = $dsHeuristics.Length
+if ($len -lt 7)
+{
+    $dsHeuristics = $dsHeuristics + ("0000000").SubString(0, (7 - $len))
+    $len = 7
+}
+
+# we've ensured that $dsHeuristics is AT LEAST seven chars long now
+# it may be 13 chars or more. we really don't care about that!
+
+$char = $dsHeuristics.SubString(6, 1)
+if ($char -eq "2")
+{
+    "Anonymous query mode already set to 2"
+}
+else
+{
+    $upd =  $dsHeuristics.SubString(0, 6) + "2"
+    if ($dsHeuristics.Length -gt 7)
+    {
+        $dsHeuristics.SubString(7, $len)
+    }
+
+    $obj.dsHeuristics = $upd
+    $obj.SetInfo()
+
+    "Anonymous query mode set to 2"
+    "New value of dsHeuristics equal to $upd"
+}
+    
+    
+====================================
+> net localgroup "Pre-Windows 2000 Compatible Access" Everyone /delete
+> net localgroup "Pre-Windows 2000 Compatible Access" "Anonymous Logon" /delete
+> net localgroup "Pre-Windows 2000 Compatible Access" "Authenticated Users" /add
+    
+    
+====================================
+> dsmod group "cn=Pre-Windows 2000 Compatible Access,cn=Builtin,
+<DomainDN>" -chmbr "cn=S-1-5-11,cn=ForeignSecurityPrincipals,<DomainDN>"
+    
+    
+====================================
+> admod -b "cn=Pre-Windows 2000 Compatible Access,cn=Builtin,
+<DomainDN>" member::"cn=S-1-5-11,cn=ForeignSecurityPrincipals,<DomainDN>"
+    
+    
+====================================
+' This code clears the membership of the Pre-Windows 2000 Compatible Access group
+' and then adds "Authenticated Users" back as the only member.
+' ------ SCRIPT CONFIGURATION ------
+strAnonAccessDN = "cn=Pre-Windows 2000 Compatible Access," & _
+  cn=Builtin,<DomainDN>"
+strAuthUsersDN = "cn=S-1-5-11,cn=ForeignSecurityPrincipals,<DomainDN>"
+Const ADS_PROPERTY_CLEAR = 1 ' Used to clear the existing membership
+' ------ END CONFIGURATION --------
+
+set objAnonAccessDN = GetObject("LDAP://" & strAnonAccessDN)
+
+' Remove any existing groups with anonymous access
+objAnonAccessDN.PutEx ADS_PROPERTY_CLEAR, "member", 0
+objAnonAccessDN.SetInfo
+
+' Now add auth users only
+objGroup.Add("LDAP://" & strAuthUsersDN)
+    
+    
+====================================
+> dsacls <ObjectDN> /g <Permissions>
+    
+    
+====================================
+> dsacls <ObjectDN> /g RPWP;description;
+    
+    
+====================================
+Add-QADPermission -Identity <ObjectDN> -Account <Delegated User/Group DN> -Rights
+'ReadProperty' -Property 'description' -ApplyTo 'ThisObjectOnly'
+    
+    
+====================================
+Templates = template1, template2, template3, template4, template5, template6,
+template7, template8, template9,template10, template11, template12, template13
+    
+    
+====================================
+Templates = template1, template2, template3, template4, template5, template6,
+template7, template8, template9,template10, template11, template12, template13,
+template14
+    
+    
+====================================
+[<TemplateName>]
+AppliesToClasses = <CommaSeparatedOfObjectClassesInvokedFrom>
+
+Description = "<DescriptionShownInWizard>"
+
+ObjectTypes = <CommaSeparatedListOfObjectClassesThatAreSet>
+
+[<TemplateName>.SCOPE]<Permission entries for Scope>
+
+[<TemplateName>.<ObjectClass1>]<Permission entries for ObjectClass1>
+
+[<TemplateName>.<ObjectClass2>]<Permission entries for ObjectClass2>
+
+...
+    
+    
+====================================
+AppliesToClasses = domainDNS,organizationalUnit,container
+    
+    
+====================================
+Description = "Create, delete, and manage user and inetOrgPerson accounts"
+    
+    
+====================================
+ObjectTypes = user,inetOrgPerson
+    
+    
+====================================
+[template14.SCOPE]
+user=CC,DC
+inetOrgPerson=CC,DC
+    
+    
+====================================
+[template14.user]
+@=GA
+
+[template14.inetOrgPerson]
+@=GA
+    
+    
+====================================
+[template14.inetOrgPerson]
+department=RP,WP
+    
+    
+====================================
+[template14.inetOrgPerson]
+CONTROLRIGHT="Reset Password"
+pwdLastSet=RP,WP
+    
+    
+====================================
+> dsrevoke /remove "/root:ou=Finance,dc=adatum,dc=com" ADATUM\jsmith
+    
+    
+====================================
+Get-QADPermission -Identity <ObjectDN> -Account (<User DN>) | remove-QADPermission
+-Identity <ObjectDN>
+    
+    
+====================================
+> dsacls <ObjectDN>
+    
+    
+====================================
+get-QADObject -Identity <ObjectDN> -SecurityMask DACL | Get-QADPermission 
+-Inherited -SchemaDefault
+    
+    
+====================================
+[user]
+aCSPolicyName=7
+adminCount=7
+allowedAttributes=7
+    
+    
+====================================
+> acldiag <ObjectDN> /geteffective:<UserOrGroup>
+    
+    
+====================================
+> dsacls <ObjectDN> /P:Y
+    
+    
+====================================
+> dsacls <ObjectDN> /P:N
+    
+    
+====================================
+' This code enables or disables the "Allow inheritable permissions..."
+' setting on an AD object.
+' ------ SCRIPT CONFIGURATION ------
+Const SE_DACL_PROTECTED = &H1000 ' set to 0 to enable inheritance
+strObject = "<ObjectDN>" ' e.g. ou=Finance,dc=adatum,dc=com
+' ------ END CONFIGURATION ---------
+
+Set objObject = GetObject("LDAP://" & strObject
+Set objntSD = objObject.Get("nTSecurityDescriptor")
+intNTSDControl = objNtSD.Control
+
+' Disable the bit for "allow inheritable permissions".
+intNTSDControl = intNTSDControl And SE_DACL_PROTECTED
+objntSD.Control = intNTSDControl
+objObject.Put "nTSecurityDescriptor", objntSD
+objObject.SetInfo
+
+Wscript.Echo "Inheritable permissionss disabled!"
+    
+    
+====================================
+Set-QADObjectSecurity -Identity <ObjectDN> -LockInheritance -Remove
+    
+    
+====================================
+Set-QADObjectSecurity -Identity <ObjectDN> -UnlockInheritance
+    
+    
+====================================
+> dsacls <ObjectDN> /g <Permissions>
+    
+    
+====================================
+> acldiag <ObjectDN> /schema
+    
+    
+====================================
+> dsacls <ObjectDN> /s
+    
+    
+====================================
+On Error Resume Next ' necessary if dsHeuristics is not
+                     ' already set
+
+' This code enables or disables list object mode for a forest.
+' ------ SCRIPT CONFIGURATION -----
+boolEnableListObject = 1 ' e.g. 1 to enable, 0 to disable
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objDS = GetObject( _
+                "LDAP://cn=Directory Service,cn=Windows NT,cn=Services," _
+                & objRootDSE.Get("configurationNamingContext") )
+strDSH = objDS.Get("dSHeuristics")
+if len(strDSH) = 1 then
+   strDSH = strDSH & "0"
+end if
+strNewDSH = Left(strDSH,2) & boolEnableListObject
+if len(strDSH) > 3 then
+   strNewDSH = strNewDSH & Right(strDSH, len(strDSH) - 3)
+end if
+
+WScript.Echo "Old value: " & strDSH
+WScript.Echo "New value: " & strNewDSH
+
+if strDSH <> strNewDSH then
+   objDS.Put "
+dSHeuristics", strNewDSH
+   objDS.SetInfo
+   WScript.Echo "Successfully set list object mode to " & _
+                boolEnableListObject
+else
+   WScript.Echo "List object mode already set to " & boolEnableListObject
+end if
+    
+    
+====================================
+> klist tickets
+    
+    
+====================================
+> klist purge
+    
+    
+====================================
+> reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa\Kerberos\Parameters" /v
+"MaxPacketSize" /t REG_DWORD /d 1
+    
+    
+====================================
+' This code forces Kerberos to use TCP.
+' ------ SCRIPT CONFIGURATION -----
+strComputer = "<ComputerName>" ' e.g. rallen-w2k3
+' ------ END CONFIGURATION --------
+
+const HKLM = &H80000002
+strRegKey = "SYSTEM\CurrentControlSet\Control\Lsa\Kerberos\Parameters"
+set objReg = GetObject("winmgmts:\\" & strComputer & _
+                       "\root\default:StdRegProv")
+objReg.SetDwordValue HKLM, strRegKey, "MaxPacketSize", 1
+WScript.Echo "Kerberos forced to use TCP for " & strComputer
+    
+    
+====================================
+$strRegPath = "HKLM:\System\CurrentControlSet\Lsa\Kerberos\Parameters"
+New-ItemProperty -path $strRegPath -name "MaxPacketSize" -type DWORD
+Set-ItemProperty -path $strRegPath -name "MaxPacketSize" -value "1"
+    
+    
+====================================
+> netdiag /test:kerberos
+    
+    
+====================================
+> tokensz /compute_tokensize /
+package:negotiate /target_server:host/<DCName>
+/user:<Username> /domain:<DomainName> /password:<Password> /dumpgroups
+    
+    
+====================================
+1200 + 40d + 80s
+    
+    
+==================

@@ -1,0 +1,686 @@
+chapter: Groups
+==================
+> dsadd group "<GroupDN>" -scope <GroupScope> -secgrp yes|no -desc "<GroupDesc>"
+    
+    
+====================================
+> admod -b "<GroupDN>" objectClass::group groupType::
+"<GroupType>" sAMAccountName::"<Pre-Windows2000Name>" -add
+    
+    
+====================================
+> dsadd group "cn=Finance Users,ou=Finance,dc=adatum,dc=com"-scope global-
+secgrp yes
+
+> admod-b "cn=Finance Users,ou=Finance,dc=adatum,dc=com" groupType::-2147483646
+sAMAccountName::"Finance Users" -add
+    
+    
+====================================
+' The following code creates a global security group.
+' ------ SCRIPT CONFIGURATION ------
+strGroupParentDN = "<GroupParentDN>" ' e.g. ou=Groups,dc=adatum,dc=com
+strGroupName     = "<GroupName>"     ' e.g. ExecAdminsSales
+strGroupDescr    = "<GroupDesc>"     ' e.g. Executive Admins for Sales group
+' ------ END CONFIGURATION ---------
+
+' Constants taken from ADS_GROUP_TYPE_ENUM
+Const ADS_GROUP_TYPE_GLOBAL_GROUP       = 2
+Const ADS_GROUP_TYPE_DOMAIN_LOCAL_GROUP = 4
+Const ADS_GROUP_TYPE_SECURITY_ENABLED   = -2147483648
+Const ADS_GROUP_TYPE_UNIVERSAL_GROUP    = 8
+
+set objOU = GetObject("LDAP://" & strGroupParentDN)
+set objGroup = objOU.Create("group","cn=" & strGroupName)
+objGroup.Put "groupType", ADS_GROUP_TYPE_GLOBAL_GROUP _
+                         Or ADS_GROUP_TYPE_SECURITY_ENABLED
+objGroup.Put "sAMAccountName", strGroupName
+objGroup.Put "description", strGroupDescr
+objGroup.SetInfo
+    
+    
+====================================
+new-QADGroup -ParentContainer '<Parent OU DN>' -name '<GroupName>' -samaccountname
+'<GroupName> -grouptype 'Distribution' -groupscope 'Universal'
+    
+    
+====================================
+set-variable ADS_GROUP_TYPE_GLOBAL_GROUP      2          -option constant
+set-variable ADS_GROUP_TYPE_DOMAIN_LOCALGROUP 4          -option constant
+set-variable ADS_GROUP_TYPE_UNIVERSAL_GROUP   8          -option constant
+set-variable ADS_GROUP_TYPE_SECURITY_ENABLED -2147483648 -option constant
+
+$groupType = $ADS_GROUP_TYPE_GLOBAL_GROUP -bor $ADS_GROUP_TYPE_SECURITY_ENABLED
+
+$objParent = [ADSI] "LDAP://<Parent DN>"
+$objGroup = $objParent.Create("group", "cn=<Group Name>")
+$objGroup.Put("groupType", $groupType.ToString())
+$objGroup.Put("samaccountname", "<Group Name>")
+$objGroup.SetInfo()
+    
+    
+====================================
+> dsacls "<GroupDN>"
+    
+    
+====================================
+adfind -gcb -f name=<Group Name> ntsecuritydescriptor -sddl++ -resolvesids
+    
+    
+====================================
+Const SE_DACL_PROTECTED = &H1000
+
+Set objGroup = GetObject("LDAP://<GroupDN>")
+
+Set objNtSecurityDescriptor = objGroup.Get("nTSecurityDescriptor")
+
+Control = objNtSecurityDescriptor.Control
+
+WScript.Echo "Group Permissions"
+If (intNtSecurityDescriptorControl And SE_DACL_PROTECTED) Then
+    Wscript.Echo "Permission inheritance is disabled."
+Else
+    WScript.Echo "Permission inheritance is enabled."
+End If
+WScript.Echo
+
+Set objDACL = objNtSecurityDescriptor.DiscretionaryAcl
+DisplayAceInformation objDACL, "DACL"
+
+Sub DisplayAceInformation(SecurityStructure, strType)
+    Const ADS_ACETYPE_ACCESS_ALLOWED = &H0
+    Const ADS_ACETYPE_ACCESS_DENIED = &H1
+    Const ADS_ACETYPE_ACCESS_ALLOWED_OBJECT = &H5
+    Const ADS_ACETYPE_ACCESS_DENIED_OBJECT = &H6
+    intAceCount = 0
+    For Each objAce In SecurityStructure
+        strTrustee = Mid(objAce.Trustee,1,12)
+        If StrComp(strTrustee, "NT AUTHORITY", 1) <> 0 Then
+            intAceCount = intAceCount + 1
+            WScript.Echo strType & " permission entry: " & intAceCount
+            WScript.Echo "Name: " & objAce.Trustee
+
+            intAceType = objAce.AceType
+            If (intAceType = ADS_ACETYPE_ACCESS_ALLOWED Or _
+                intAceType = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT) Then
+                WScript.Echo "Allow ACE"
+            ElseIf (intAceType = ADS_ACETYPE_ACCESS_DENIED Or _
+                intAceType = ADS_ACETYPE_ACCESS_DENIED_OBJECT) Then
+                WScript.Echo "Deny ACE"
+            Else
+                WScript.Echo "Unknown ACE."
+            End If
+            ReadBitsInAccessMask(objAce.AccessMask)
+            WScript.Echo VbCr
+        End If
+    Next
+End Sub
+
+Sub ReadBitsInAccessMask(AccessMask)
+    Const ADS_RIGHT_DELETE = &H10000
+    Const ADS_RIGHT_READ_CONTROL = &H20000
+    Const ADS_RIGHT_WRITE_DAC = &H40000
+    Const ADS_RIGHT_WRITE_OWNER = &H80000
+    Const ADS_RIGHT_DS_CREATE_CHILD = &H1
+    Const ADS_RIGHT_DS_DELETE_CHILD = &H2
+    Const ADS_RIGHT_ACTRL_DS_LIST = &H4
+    Const ADS_RIGHT_DS_SELF = &H8
+    Const ADS_RIGHT_DS_READ_PROP = &H10
+    Const ADS_RIGHT_DS_WRITE_PROP = &H20
+    Const ADS_RIGHT_DS_DELETE_TREE = &H40
+    Const ADS_RIGHT_DS_LIST_OBJECT = &H80
+    Const ADS_RIGHT_DS_CONTROL_ACCESS = &H100
+
+    WScript.Echo VbCrLf & "Standard Access Rights"
+    If (AccessMask And ADS_RIGHT_DELETE) Then _
+        WScript.Echo vbTab & "-Delete an object."
+    If (AccessMask And ADS_RIGHT_READ_CONTROL) Then _
+        WScript.Echo vbTab & "-Read permissions."
+    If (AccessMask And ADS_RIGHT_WRITE_DAC) Then _
+        WScript.Echo vbTab & "-Write permissions."
+    If (AccessMask And ADS_RIGHT_WRITE_OWNER) Then _
+        WScript.Echo vbTab & "-Modify owner."
+
+    WScript.Echo VbCrLf & "Directory Service Specific Access Rights"
+    If (AccessMask And ADS_RIGHT_DS_CREATE_CHILD) Then _
+        WScript.Echo vbTab & "-Create child objects."
+    If (AccessMask And ADS_RIGHT_DS_DELETE_CHILD) Then _
+        WScript.Echo vbTab & "-Delete child objects."
+    If (AccessMask And ADS_RIGHT_ACTRL_DS_LIST) Then _
+        WScript.Echo vbTab & "-Enumerate an object."
+    If (AccessMask And ADS_RIGHT_DS_READ_PROP) Then _
+        WScript.Echo vbTab & "-Read the properties of an object."
+    If (AccessMask And ADS_RIGHT_DS_WRITE_PROP) Then _
+        WScript.Echo vbTab & "-Write the properties of an object."
+    If (AccessMask And ADS_RIGHT_DS_DELETE_TREE) Then _
+        WScript.Echo vbTab & "-Delete a tree of objects"
+    If (AccessMask And ADS_RIGHT_DS_LIST_OBJECT) Then _
+        WScript.Echo vbTab & "-List a tree of objects."
+
+    WScript.Echo VbCrLf & "Control Access Rights"
+    If (AccessMask And ADS_RIGHT_DS_CONTROL_ACCESS) + _
+        (AccessMask And ADS_RIGHT_DS_SELF) = 0 Then
+        WScript.Echo "-None"
+    Else
+        If (AccessMask And ADS_RIGHT_DS_CONTROL_ACCESS) Then _
+            WScript.Echo vbTab & "-Extended access rights."
+        If (AccessMask And ADS_RIGHT_DS_SELF) Then
+            WScript.Echo vbTab & "-Active Directory must validate a property "
+            WScript.Echo vbTab & " write operation beyond the schema " & _
+                "definition "
+            WScript.Echo vbTab & " for the attribute."
+      End If
+    End If
+End Sub
+    
+    
+====================================
+Get-QADPermission -identity <Group DN> -Inherited -SchemaDefault
+    
+    
+====================================
+Get-ADPermission -Identity <Group Name>
+    
+    
+====================================
+> dsget group "<GroupDN>" -members
+    
+    
+====================================
+> adfind -b "<GroupDN>" member
+    
+    
+====================================
+' This code prints the direct members of the specified group.
+' ------ SCRIPT CONFIGURATION -----
+strGroupDN = "<GroupDN>" ' e.g. cn=SalesGroup,ou=Groups,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+set objGroup = GetObject("LDAP://" & strGroupDN)
+Wscript.Echo "Members of " & objGroup.Name & ":"
+for each objMember in objGroup.Members
+   Wscript.Echo objMember.Name
+next
+    
+    
+====================================
+Get-QADGroupMember -identity <Group DN>
+[ADSI] "LDAP://<Group DN>".Member
+    
+    
+====================================
+> dsget group "<GroupDN>" -members -expand
+    
+    
+====================================
+> memberof -group <GroupDN>
+    
+    
+====================================
+' This code prints the nested membership of a group.
+' ------ SCRIPT CONFIGURATION ------
+strGroupDN = "<GroupDN>" ' e.g. cn=SalesGroup,ou=Groups,dc=adatum,dc=com
+' ------ END CONFIGURATION ---------
+
+strSpaces = " "
+set dicSeenGroupMember = CreateObject("Scripting.Dictionary")
+Wscript.Echo "Members of " & strGroupDN & ":"
+DisplayMembers("LDAP://" & strGroupDN, strSpaces, dicSeenGroupMember)
+
+Function
+DisplayMembers ( strGroupADsPath, strSpaces,dicSeenGroupMember)
+
+   set objGroup = GetObject(strGroupADsPath)
+   for each objMember In objGroup.Members
+      Wscript.Echo strSpaces & objMember.Name
+      if objMember.Class = "group" then
+         if dicSeenGroupMember.Exists(objMember.ADsPath) then
+            Wscript.Echo strSpaces & " ^ already seen group member " & _
+                                         "(stopping to avoid loop)"
+         else
+            dicSeenGroupMember.Add objMember.ADsPath, 1
+            DisplayMembers objMember.ADsPath, strSpaces & " ", _
+                           dicSeenGroupMember
+         end if
+      end if
+   next
+
+End Function
+    
+    
+====================================
+Get-QADGroupMember -identity <Group DN> -indirect
+    
+    
+====================================
+> dsmod group "<GroupDN>" -addmbr "<MemberDN>"
+    
+    
+====================================
+> admod -b "<GroupDN>" member:+:"<MemberDN>"
+    
+    
+====================================
+> dsmod group "<GroupDN>" -rmmbr "<MemberDN>"
+    
+    
+====================================
+> admod -b "<GroupDN>" member:-:"<MemberDN>"
+    
+    
+====================================
+> dsmod group "<GroupDN>" -chmbr "<Member1DN Member2DN ... >"
+    
+    
+====================================
+> admod -b "<GroupDN>" member:+-:"<Member1DN>;<Member2DN>;<Member3DN>"
+    
+    
+====================================
+' This code adds a member to a group.
+' ------ SCRIPT CONFIGURATION ------
+strGroupDN = "<GroupDN>" ' e.g. cn=SalesGroup,ou=
+Groups,dc=adatum,dc=com
+strMemberDN = "<MemberDN>" ' e.g. cn=jsmith,cn=users,dc=adatum,dc=com
+' ------ END CONFIGURATION ---------
+
+set objGroup = GetObject("LDAP://" & strGroupDN)
+' Add a member
+
+objGroup.Add("LDAP://" & strMemberDN)
+' This code removes a member from a group.
+' ------ SCRIPT CONFIGURATION ------
+strGroupDN = "<GroupDN>" ' e.g. cn=SalesGroup,ou=Groups,dc=adatum,dc=com
+strMemberDN = "<MemberDN>" ' e.g. cn=jsmith,cn=users,dc=adatum,dc=com
+' ------ END CONFIGURATION ---------
+
+set objGroup = GetObject("LDAP://" & strGroupDN)
+' Remove a member
+objGroup.Remove("LDAP://" & strMemberDN)
+    
+    
+====================================
+Add-QADGroupMember -Identity <GroupDN> -Member <UserDN>
+Remove-QADGroupMember -Identity <GroupDN> -Member <UserDN>
+    
+    
+====================================
+$objGroup = [ADSI] "LDAP://<Group DN>"
+$objGroup.Add("LDAP://<User DN>")
+    
+    
+====================================
+$objGroup = [ADSI] "LDAP://<Group DN>"
+$objGroup.Remove("LDAP://<User DN>")
+    
+    
+====================================
+> dsmove "<GroupDN>" -newparent "<NewParentDN>"
+    
+    
+====================================
+> admod -b "<GroupDN>" -move "<NewParentDN>"
+    
+    
+====================================
+' This code moves an object from one location to another in the same domain.
+' ------ SCRIPT CONFIGURATION -----
+strNewParentDN = "LDAP://<NewParentDN>"
+strGroupRDN  = "<GroupRDN>" ' i.e. "cn=Finance"
+strGroupDN   = "LDAP://cn=<GroupRDN>,<OldParentDN>"
+' ------ END CONFIGURATION --------
+
+set objCont = GetObject(strNewParentDN)
+objCont.MoveHere strGroupDN,strGroupRDN
+    
+    
+====================================
+move-QADObject -Identity <GroupDN> -NewParentContainer <New OU DN>
+    
+    
+====================================
+$objGroup = [ADSI] "LDAP://<GroupDN>"
+$objNewOU = [ADSI] "LDAP://<New Parent OU DN>"
+$objGroup.psbase.MoveTo($objNewOU)
+    
+    
+====================================
+> ADMT GROUP /N "<GroupName1>" "<GroupName2>" /IF:YES /SD:"<SourceDomainDN>"
+/TD:"<TargetDomainDN>" /TO:"<TargetOUDN>"
+    
+    
+====================================
+set objObject = GetObject("LDAP://TargetDC/TargetParentDN")
+objObject.MoveHere "LDAP://SourceDC/SourceDN", vbNullString
+    
+    
+====================================
+set objObject = GetObject( _
+   "LDAP://dc-amer1/cn=Finance Users,dc=amer,dc=adatum,dc=com")
+objObject.MoveHere _
+   "LDAP://dc-emea1/cn=Finance Users,cn=users,dc=emea,dc=adatum,dc=com", _
+   vbNullString
+    
+    
+====================================
+> dsmod group "<GroupDN>" -scope <NewScope>
+    
+    
+====================================
+> dsmod group "<GroupDN>" -secgrp yes|no
+    
+    
+====================================
+> admod -b <GroupDN> groupType::<GroupType>
+    
+    
+====================================
+' This code sets the scope and type of the specified group
+' to a universal security group.
+' ------ SCRIPT CONFIGURATION ------
+strGroupDN = "<GroupDN>" ' e.g. cn=SalesGroup,ou=
+Groups,dc=adatum,dc=com
+' ------ END CONFIGURATION ---------
+
+' Constants taken from ADS_GROUP_TYPE_ENUM
+ADS_GROUP_TYPE_GLOBAL_GROUP       = 2
+ADS_GROUP_TYPE_DOMAIN_LOCAL_GROUP = 4
+ADS_GROUP_TYPE_UNIVERSAL_GROUP    = 8
+ADS_GROUP_TYPE_SECURITY_ENABLED   = -2147483648
+
+set objGroup = GetObject("LDAP://" & strGroupDN )
+objGroup.Put "
+groupType", ADS_GROUP_TYPE_UNIVERSAL_GROUP _
+                       Or ADS_GROUP_TYPE_SECURITY_ENABLED
+objGroup.SetInfo
+    
+    
+====================================
+set-QADGroup -GroupType '<GroupType>' -GroupScope '<GroupScope>'
+    
+    
+====================================
+set-variable ADS_GROUP_TYPE_GLOBAL_GROUP      2          -option constant
+set-variable ADS_GROUP_TYPE_DOMAIN_LOCALGROUP 4          -option constant
+set-variable ADS_GROUP_TYPE_UNIVERSAL_GROUP   8          -option constant
+set-variable ADS_GROUP_TYPE_SECURITY_ENABLED -2147483648 -option constant
+
+$groupType = $ADS_GROUP_TYPE_GLOBAL_GROUP -bor $ADS_GROUP_TYPE_SECURITY_ENABLED
+
+$objGroup = [ADSI] "LDAP://<Group DN>"
+$objGroup.Put("groupType", $groupType.ToString())
+$objGroup.SetInfo()
+    
+    
+====================================
+dn: cn=Finance Users,cn=users,dc=adatum,dc=com
+changetype: modify
+add: description
+description: Members of the Finance Department
+-
+    
+    
+====================================
+> ldifde -v -i -f modify_object.ldf
+    
+    
+====================================
+> admod-b <GroupDN> <attribute>:<operation>:<value>
+    
+    
+====================================
+> C:\>admod -b cn="Finance Users,cn=Users,dc=adatum,dc=com"
+   description::"Members of the Finance Department"
+    
+    
+====================================
+> dsmod group <GroupDN> <options>
+    
+    
+====================================
+strGroupDN = "cn=Finance Users,cn=users,dc=adatum,dc=com"
+set objGroup = GetObject("LDAP://" & strGroupDN)
+objGroup.Put "description", "Members of the Finance Department"
+objGroup.SetInfo
+    
+    
+====================================
+set-QADGroup -Identity <Group DN> -GroupType
+'<GroupType>' -GroupScope '<GroupScope>' -description '<Description>'
+
+$objGroup = [ADSI] "LDAP://<Group DN>"
+$objGroup.Put("<attribute>", "<value>")
+$objGroup.SetInfo()
+    
+    
+====================================
+> admod -b <GroupDN> groupType::32 sAMAccountType::1073741825 msDS-AzLDAPQuery::
+"(&(objectcategory=person)(objectclass=user))" -add
+    
+    
+====================================
+' The following code will create an application group
+' that is scoped to an individual application rather than
+' the entire authorization store
+
+AzManStore = CreateObject("AzRoles.AzAuthorizationStore")
+
+Set Application1 = AzManStore.OpenApplication("ERP")
+Set AppGroup = _
+  Application1.CreateApplicationGroup("HR Managers",VT_EMPTY)
+AppGroup.Type = AZ_GROUPTYPE_LDAP_QUERY
+AppGroup.Description = "Users with hiring authority"
+AppGroup.LdapQuery = _
+  "(memberOf= CN=HR Managers,OU=Distribution Lists,DC=enterprise,DC=com)"
+
+'----- Persist the changes to the application group and then the app ------
+AppGroup.Submit
+Application1.Submit
+    
+    
+====================================
+> dsacls <GroupDN> /G <GroupName>@DomainName:WP;member;
+    
+    
+====================================
+> dsacls cn=presales,ou=sales,dc=adatum,dc=com /G salesadmins@adatum.com:
+WP;member;
+    
+    
+====================================
+' This code grants write access to the member attribute of a group.
+' ------ SCRIPT CONFIGURATION -----
+strGroupDN = "<GroupDN>" ' e.g. cn=SalesGroup,ou=Sales,dc=adatum,dc=com"
+strUserOrGroup = "<UserOrGroup>" ' e.g. joe@adatum.com or ADATUM\joe
+' ------ END CONFIGURATION --------
+
+set objGroup = GetObject("LDAP://" & strGroupDN)
+'############################
+' Constants
+'############################
+' ADS_ACETYPE_ENUM
+Const ADS_ACETYPE_ACCESS_ALLOWED_OBJECT = &h5
+Const ADS_FLAG_OBJECT_TYPE_PRESENT = &h1
+Const ADS_RIGHT_DS_WRITE_PROP = &h20
+
+' From schemaIDGUID of member attribute
+Const MEMBER_ATTRIBUTE = "{bf9679c0-0de6-11d0-a285-00aa003049e2}"
+
+'############################
+' Create ACL
+'############################
+set objSD = objGroup.Get("nTSecurityDescriptor")
+set objDACL = objSD.DiscretionaryAcl
+
+' Set WP for member attribute
+set objACE = CreateObject("AccessControlEntry")
+objACE.Trustee    = strUserOrGroup
+objACE.AccessMask = ADS_RIGHT_DS_WRITE_PROP
+objACE.AceFlags   = 0
+objACE.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+objACE.ObjectType = MEMBER_ATTRIBUTE
+
+objDACL.AddAce objACE
+
+'############################
+' Set ACL
+'############################
+
+objSD.DiscretionaryAcl = objDACL
+objGroup.Put "nTSecurityDescriptor", objSD
+objGroup.SetInfo
+WScript.Echo "Delegated control of member attribute for " & _
+              strGroupDN & " to " & strUserOrGroup
+    
+    
+====================================
+add-QADPermission -Identity <Group DN> -Account <User/Group DN> -Rights
+'WriteProperty' -Property 'member' -ApplyTo 'ThisObjectOnly'
+    
+    
+====================================
+Add-ADPermission -Identity <Group Name> -User <User or Group Name> -AccessRights
+WriteProperty -Properties "members"
+    
+    
+====================================
+/G <GroupName>@DomainDNSName:WP;description;
+    
+    
+====================================
+' This code prints the group name of a user's primary group
+'-----------SCRIPT CONFIGURATION----------------------------
+strUserDN = "<UserDN>" ' i.e. "cn=jsmith,dc=adatum,dc=com"
+strDomain = "<DomainNetBIOSName>" ' i.e. ADATUM
+'----------------------------------------------------------
+
+' Grab the primary group's RID from the user object
+set objUser = GetObject("LDAP://" & strUserDN)
+strGroupRID = objUser.Get("primaryGroupID")
+
+' Grab the user's SID to obtain the domain SID
+strUserName = objUser.sAMAccountName
+Set WMIUser = GetObject("winmgmts:{impersonationlevel=impersonate}!" _
+    & "/root/cimv2:
+Win32_UserAccount.Domain='" & strDomain & "'" _
+    & ",Name='" & strUserName & "'")
+strUserSID = WMIUser.SID
+strDomainSID = mid(strUserSID,1,(InStrREV(strUserSID,"-")))
+
+' Now construct the Primary Group SID
+strGroupSID = strDomainSID & strGroupRID
+
+' Bind to the primary group using its SID and echo its name
+set objGroup = GetObject("LDAP://<SID=" & strGroupSID &">")
+strGroupDN = objGroup.distinguishedName
+WScript.Echo(strGroupDN)
+    
+    
+====================================
+# This code prints the group name of a user's primary group
+
+$strUserDN = "<UserDN>" # i.e. "cn=jsmith,cn=users,dc=adatum,dc=com"
+
+# bind to the user object
+$objUser = [ADSI]("LDAP://" + $strUserDN)
+
+# get the user's primary group ID
+$grpID = $objUser.primaryGroupID
+
+# get the user's SID into a byte array
+$sid = $objUser.objectSID.Value
+
+# create a .NET SID object
+$objSID = new-object System.Security.Principal.SecurityIdentifier($sid, 0)
+
+# build the SID of the primary group
+$grp = $objSID.AccountDomainSid.Value + "-" + $objUser.primaryGroupID.ToString()
+
+# bind to the group object
+$objGroup = [ADSI]("LDAP://<SID=" + $grp + ">")
+
+# output the group name
+$objGroup.distinguishedName
+    
+    
+====================================
+> dsquery site -name <SiteName> | dsget site -dn -cachegroups -prefGCSite
+    
+    
+====================================
+dn: cn=NTDS Site Settings,cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>
+changetype: modify
+replace: options
+options: 32
+-
+    
+    
+====================================
+> ldifde -i -f enable_univ_cache.ldf
+    
+    
+====================================
+>  adfind –config –rb "cn=NTDS Settings,cn=<SiteName>,cn=Sites" 
+options –adcsv | admod options::{{.:SET:32}}
+    
+    
+====================================
+' This code enables universal group
+' caching for the specified site.
+' ------ SCRIPT CONFIGURATION -----
+strSiteName = "<SiteName>" ' e.g. Default-First-Site-Name
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objSite = GetObject("LDAP://cn=NTDS Site Settings,cn=" & strSiteName & _
+              ",cn=sites," & objRootDSE.Get("configurationNamingContext") )
+objSite.Put "options", 32
+objSite.SetInfo
+WScript.Echo "Successfully enabled universal group caching for " & _
+             strSiteName
+    
+    
+====================================
+set-QADObject -Identity "cn=NTDS Site Settings,cn=<Site Name>,cn=Sites,<Config DN>"
+-ObjectAttributes @{options="32"}
+
+$objSite = [ADSI] "LDAP://cn=NTDS Site Settings,cn=<Site Name>,cn=Sites,<Config DN>"
+$options = [int]$objSite.options.ToString()
+$objSite.put("options", $options -bor 32)
+$objSite.SetInfo()
+    
+    
+====================================
+> ntdsutil
+> activate instance ntds
+> authoritative restore
+
+> restore subtree <ContainerDN>
+> quit
+> exit
+    
+    
+====================================
+dsacls <Group DN> /d EVERYONE:SDDT
+    
+    
+====================================
+Add-QADPermission -identity <Group DN> -Account 'EVERYONE' -Rights
+'Delete,DeleteTree' -ApplyTo 'ThisObjectOnly'
+    
+    
+====================================
+Add-ADPermission -Identity <Group Name> -User <User or Group Name>
+    -AccessRights Delete,DeleteTree -Deny $true
+    
+    
+====================================
+C:> psomgr -applyto CN=Marketing,CN=Users,DC=ADATUM,DC=COM -pso TestPSO -forreal
+    
+    
+====================================
+Add-QADPasswordSettingsObjectAppliesTo -Identity <PSO DN> -AppliesTo <Group DN>
+    
+    
+==================

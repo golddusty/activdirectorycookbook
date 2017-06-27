@@ -1,0 +1,577 @@
+chapter: Microsoft Identity Lifecycle Manager
+==================
+Imports Microsoft.MetadirectoryServices
+Public Class MAExtensionObject
+    Implements IMASynchronization
+    
+    
+====================================
+Public Sub MapAttributesForImport(ByVal FlowRuleName As String, ByVal csentry As
+    CSEntry, ByVal mventry As MVEntry) Implements
+    IMASynchronization.MapAttributesForImport
+        ' TODO: write your import
+attribute flow code
+        Select Case FlowRuleName
+            Case "uid"
+                ' TODO: remove the following statement and add your scripted
+                   ' import attribute flow here
+                Throw New EntryPointNotImplementedException()
+
+            Case "cn"
+                ' TODO: remove the following statement and add your scripted
+                   ' import
+attribute flow here
+                Throw New EntryPointNotImplementedException()
+
+            Case Else
+                ' TODO: remove the following statement and add your default
+                   ' script here
+                Throw New EntryPointNotImplementedException()
+
+         End Select
+End Sub
+    
+    
+====================================
+Select Case FlowRuleName
+Case "uid"
+If Not csentry("Last Name").IsPresent Then
+      Throw New UnexpectedDataException("No Last Name!")
+End If
+
+If Not csentry("First Name").IsPresent Then
+      Throw New UnexpectedDataException("No First Name!")
+End If
+
+mventry("uid").Value = csentry("First Name").StringValue.Substring(0, 1) + _
+csentry("Last Name").Value
+
+Case "cn"
+If Not csentry("Last Name").IsPresent Then
+      Throw New UnexpectedDataException("No Last Name!")
+   End If
+   If Not csentry("First Name").IsPresent Then
+      Throw New UnexpectedDataException("No First Name!")
+   End If
+   mventry("cn").Value = csentry("First Name").Value + " " + _
+      csentry("Last Name").Value
+
+Case Else
+   ' TODO: remove the following statement and add your default script here
+      Throw New EntryPointNotImplementedException
+
+End Select
+    
+    
+====================================
+---------------------- Done ---------------------
+
+      Build: 1 succeeded, 0 failed, 0 skipped
+    
+    
+====================================
+Imports Microsoft.MetadirectoryServices
+
+Public Class MVExtensionObject
+    Implements IMVSynchronization
+    
+    
+====================================
+Public Sub Provision(ByVal mventry As MVEntry) Implements
+IMVSynchronization.Provision
+        ' TODO: Remove this throw statement if you implement this method
+        Throw New EntryPointNotImplementedException()
+    End Sub
+    
+    
+====================================
+Public Sub Provision(ByVal mventry As MVEntry) Implements _
+IMVSynchronization.Provision
+
+    Dim container As String
+    Dim rdn As String
+    Dim ADMA As ConnectedMA
+    Dim numConnectors As Integer
+
+    Dim myConnector As CSEntry
+    Dim csentry As CSEntry
+    Dim dn As ReferenceValue
+
+    ' Ensure that the cn attribute is present.
+    If Not mventry("cn").IsPresent Then
+        Throw New UnexpectedDataException("cn attribute is not present.")
+    End If
+    ' Calculate the container and RDN.
+    container = "CN=users,DC=rallencorp,DC=com"
+    rdn = "CN=" & mventry("cn").Value
+
+    ADMA = mventry.ConnectedMAs("rallencorp.com")
+    dn = ADMA.EscapeDNComponent(rdn).Concat(container)
+
+    numConnectors = ADMA.Connectors.Count
+
+    ' create a new connector.
+    If numConnectors = 0 Then
+        csentry = ADMA.Connectors.StartNewConnector("user")
+        csentry.DN = dn
+       csentry("unicodePwd").Value = "Password1"
+        csentry.CommitNewConnector()
+
+    ElseIf numConnectors = 1 Then
+        ' If the connector has a different DN rename it.
+        myConnector = ADMA.Connectors.ByIndex(0)
+        myConnector.DN = dn
+    Else
+        Throw New UnexpectedDataException("Error: There are" + _
+        numConnectors.ToString + " connectors")
+    End If
+End Sub
+    
+    
+====================================
+@echo off
+rem
+rem Copyright (c) Microsoft Corporation. All rights reserved.
+rem
+
+setlocal
+set zworkdir=%~dp0
+pushd %zworkdir%
+
+set madata="C:\Program Files\Microsoft Identity Integration Server\MaData"
+
+rem Full Import of HR Dzatabase Employee Records
+rem -------------------------------------------
+cscript runMA.vbs /m:"HR Database" /p:"Full Import (Stage Only)"
+if {%errorlevel%} NEQ {0} (echo Error[%errorlevel%]: command file failed) _
+& (goto exit_script)
+
+rem Full Sync of HR Database Employee Records
+rem ----------------------------------------
+cscript runMA.vbs /m:"HR Database" /p:"Full Sync"
+if {%errorlevel%} NEQ {0} (echo Error[%errorlevel%]: command file failed) _
+& (goto exit_script)
+
+rem Export users in to AD
+rem --------------------
+cscript runMA.vbs /m:"rallencorp.com" /p:"Export"
+if {%errorlevel%} NEQ {0} (echo Error[%errorlevel%]: command file failed) _
+& (goto exit_script)
+
+:exit_script
+popd
+endlocal
+    
+    
+====================================
+option explicit
+on error resume next
+
+'=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+'SCRIPT:        runMA.vbs
+'DATE:           2003-02-05
+'=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+'= Copyright (C) 2003 Microsoft Corporation. All rights reserved.
+'=
+'******************************************************************************
+'* Function: DisplayUsage
+'*
+'* Purpose:  Displays the usage of the script and exits the script
+'*
+'******************************************************************************
+Sub DisplayUsage()
+        WScript.Echo ""
+        WScript.Echo "Usage: runMa </m:ma-name> </p:profile-name>"
+
+        WScript.Echo "                [/s:mms-server-name]"
+        WScript.Echo "                [/u:user-name]"
+        WScript.Echo "                [/a:password]"
+        WScript.Echo "                [/v] Switch on Verbose mode"
+        WScript.Echo "                [/?] Show the Usage of the script"
+        WScript.Echo ""
+        WScript.Echo "Example 1: runMa /m:adma1 /p:fullimport"
+        WScript.Echo "Example 2: runMa /m:adma1 /p:fullimport /u:domain\user
+/a:mysecret /v"
+             WScript.Quit (-1)
+End Sub
+
+'******************************************************************************
+' Script Main Execution Starts Here
+'******************************************************************************
+'--Used Variables--------------------------
+dim s
+dim runResult
+dim rescode
+dim managementagentName
+dim profile
+dim verbosemode
+dim wmiLocator
+dim wmiService
+dim managementagent
+dim server
+dim username
+dim password
+'-----------------------------------------
+
+rescode = ParamExists("/?")
+if rescode = true then call DisplayUsage
+verbosemode = ParamExists("/v")
+
+managementagentName = ParamValue("/m")
+if managementagentName = "" then call DisplayUsage
+
+profile = ParamValue("/p")
+if profile = "" then call DisplayUsage
+
+if verbosemode then wscript.echo "%Info: Management Agent and Profile is _
+<"& managementagentName &":"& profile &">"
+if verbosemode then wscript.Echo "%Info: Getting WMI Locator object"
+
+set wmiLocator = CreateObject("WbemScripting.SWbemLocator")
+if err.number <> 0 then
+        wscript.echo "%Error: Cannot get WMI Locator object"
+        wscript.quit(-1)
+end if
+
+server = ParamValue("/s")
+password = ParamValue("/a")
+username = ParamValue("/u")
+
+if server = "" then server = "." ' connect to WMI on local machine
+
+if verbosemode then
+
+        wscript.Echo "%Info: Connecting to MMS WMI Service on <" & server &">"
+        if username <> "" then wscript.Echo _
+        "%Info: Accessing MMS WMI Service as <"& username &">"
+end if
+
+if username = "" then
+        set wmiService = wmiLocator.ConnectServer _
+        (server, "root/MicrosoftIdentityIntegrationServer")
+else
+        set wmiService = wmiLocator.ConnectServer_
+        (server, "root/MicrosoftIdentityIntegrationServer", username, password)
+end if
+
+if err.number <> 0 then
+        wscript.echo "%Error: Cannot connect to MMS WMI Service <" _
+        & err.Description & ">"
+        wscript.quit(-1)
+end if
+
+if verbosemode then wscript.Echo "%Info: Getting MMS Management Agent via WMI"
+
+Set managementagent = wmiService.Get( "
+MIIS_ManagementAgent.Name='" & _
+managementagentName & "'")
+if err.number <> 0 then
+        wscript.echo _
+        "%Error: Cannot get Management Agent with specified WMI Service <" & _
+        err.Description & ">"
+        wscript.quit(-1)
+end if
+
+wscript.echo "%Info: Starting Management Agent with Profile <"& _
+managementagent.name &":"& profile &">"
+runResult = managementagent.Execute(profile)
+if err.number <> 0 then
+        wscript.Echo "%Error: Running MA <"& err.Description & _
+        ">. Make sure the correct profile name is specified."
+        wscript.quit(-1)
+end if
+
+wscript.Echo "%Info: Finish Running Management Agent"
+wscript.Echo "%Result: <" & CStr(runResult) & ">"
+wscript.quit(0)
+
+'******************************************************************************
+'* Function: ParamValue
+'*
+'* Purpose: Parses the command line for an argument and
+'*          returns the value of the argument to the caller
+'*          Argument and value must be seperated by a colon
+'*
+'* Arguments:
+
+'* [in]      parametername      name of the parameter
+'*
+'* Returns:
+'*           STRING      Parameter found in commandline
+'*           ""         Parameter NOT found in commandline
+'*
+'******************************************************************************
+Function ParamValue(ParameterName)
+
+        Dim i                   '* Counter
+        Dim Arguments           '* Arguments from the command-line command
+        Dim NumberofArguments   '* Number of arguments from the command-line
+        Dim ArgumentArray       '* Array to store arguments from command-line
+        Dim TemporaryString     '* Utility string
+
+        '* Initialize Return Value to e the Empty String
+        ParamValue = ""
+
+        '* If no ParameterName is passed into the function exit
+        if ParameterName = "" then exit function
+
+        '* Check if Parameter is in the Arguments and return the value
+
+Set Arguments = WScript.Arguments
+        NumberofArguments = Arguments.Count - 1
+
+        For i=0 to NumberofArguments
+                TemporaryString = Arguments(i)
+                ArgumentArray = Split(TemporaryString,":",-1,vbTextCompare)
+
+                If ArgumentArray(0) = ParameterName Then
+                      ParamValue = ArgumentArray(1)
+                      exit function
+                End If
+        Next
+end Function
+
+'******************************************************************************
+'* Function: ParamExists
+'*
+'* Purpose:  Parses the command line for an argument and
+'*           returns the true if argument is present
+'*
+'* Arguments:
+'* [in]      parametername      name of the paramenter
+'*
+'* Returns:
+'*           true       Parameter found in commandline
+'*           false      Parameter NOT found in commandline
+'*
+'******************************************************************************
+
+Function ParamExists(ParameterName)
+
+        Dim i                   '* Counter
+
+        Dim Arguments           '* Arguments from the command-line command
+        Dim NumberofArguments   '* Number of arguments from the command-line
+        Dim ArgumentArray       '* Array to store arguments from command-line
+        Dim TemporaryString     '* Utility string
+
+        '* Initialize Return Value to e the Empty String
+        ParamExists = false
+
+        '* If no ParameterName is passed into the function exit
+        if ParameterName = "" then exit function
+
+        '* Check if Parameter is in the Arguments and return the value
+        Set Arguments = WScript.Arguments
+        NumberofArguments = Arguments.Count - 1
+
+        For i=0 to NumberofArguments
+                TemporaryString = Arguments(i)
+                If TemporaryString = ParameterName Then
+                      ParamExists = true
+                      exit function
+                End If
+        Next
+end Function
+    
+    
+====================================
+' String
+Dim strWF As String = "foobar"
+Utils.TransactionProperties.Add("WORKFLOW", strWF)
+
+' Boolean
+Utils.TransactionProperties.Add("DELETE", True)
+    
+    
+====================================
+If (Utils.TransactionProperties.Contains("DELETE") AndAlso
+Utils.TransactionProperties("DELETE").Equals(True)) Then
+    ' This allows for a typesafe way to query for the existence of a property
+End If
+
+If (Utils.TransactionProperties.Contains("WORKFLOW") AndAlso
+Utils.TransactionProperties("WORKFLOW").ToString.Contains("foo")) Then
+    ' This allows you to search the contents of a string property
+    ' You can then do an assignment
+      Dim strWFResponse As String = Utils.TransactionProperties("WORKFLOW").ToString
+End If
+
+If (Utils.TransactionProperties.Contains("WORKFLOW") AndAlso
+Utils.TransactionProperties("WORKFLOW").Equals("foobar")) Then
+    ' This allows you to do a simple comparison
+End If
+    
+    
+====================================
+If FlowRuleName.StartsWith("Trim:") Then
+    ' Trim String
+    '
+    ' Reusable code to convert an attribute to its string format
+    ' FlowRuleName will be passed as "Trim:srcAttribute,destAttribute"
+    '
+    Dim strAttributeName, strSrcAttribute, strDestAttribute, arrAttribs() 
+    As String
+
+    ' Replace the beginning of the flowrulename with nothing
+      strAttributeName = FlowRuleName.Replace("Trim:", "")
+      arrAttribs = strAttributeName.Split(","c)   ' Splits the string 
+                                                  ' on a comma
+      trSrcAttribute = arrAttribs(0)              ' Assigns the first value
+      strDestAttribute = arrAttribs(1)            ' Assigns the second value
+
+    ' Now we can assign the value and trim any whitespace at the front and back
+      mventry(strDestAttribute).Value = 
+      csentry(strSrcAttribute).Value.ToString.Trim
+
+Else If FlowRuleName.StartsWith("MyFunction:") Then
+    ' Apply custom function
+    '
+    ' Reusable code to apply a custom function to an attribute
+    ' FlowRuleName will be passed as
+"MyFunction:sourceAttribute,destinationAttribute"
+    '
+    Dim strAttributeName, strSrcAttribute, strDestAttribute, arrAttribs() 
+    As String
+
+    ' Replace the beginning of the flowrulename with nothing
+    strAttributeName = FlowRuleName.Replace("MyFunction:", "")
+    arrAttribs = strAttributeName.Split(","c)   ' Splits the string on a comma
+    strSrcAttribute = arrAttribs(0)             ' Assigns the first value
+    strDestAttribute = arrAttribs(1)            ' Assigns the second value
+
+    ' Now we can apply your custom function prior to the assignment
+    Dim strSrcAttributeValue As String
+    strSrcAttributeValue =
+MySharedCodeLib.MyFunction(csentry(strSrcAttribute).Value)
+    mventry(strDestAttribute).Value = strSrcAttributeValue
+
+Else
+    ' Continue on as you normally do
+    Select case FlowRuleName
+    
+    
+====================================
+Else If FlowRuleName.StartsWith("Delete") Then
+    '
+    ' Reusable code to delete the referenced attribute
+    ' FlowRuleName will be passed as "Delete:Attribute"
+    '
+    Dim strAttributeName As String
+
+    ' Replace the beginning of the flowrulename with nothing
+    ' to find the attribute to be deleted
+    strAttributeName = FlowRuleName.Replace("Delete:", "")
+
+    ' This is whre we delete the value
+    csentry(strAttributeName).Delete()
+    
+    
+====================================
+Case "UTCCodedTime"
+    ' Formatting strings for writing UTC Coded Time to Active Directory
+    ' For use with AD Attributes of the String(Generalized Time)/UTC Coded Time
+syntax (2.5.5.11)
+
+    Dim strDate As String
+    Dim strUTC As String
+
+    ' data source records midnight local time
+    strDate = mventry("StartDate").Value      ' Look like "2007-08-28 00:00:00"
+    strUTC =
+System.DateTime.Parse(strDate).ToUniversalTime.ToString("yyyyMMddHHmmss.0Z")
+
+    csentry("UTCAttribute").Value = strUTC
+    
+    
+====================================
+ElseIf FlowRuleName.StartsWith("ConvertFileTime:") Then
+    '
+    ' Reusable code to convert generalized time into string format
+    ' FlowRuleName will be passed as
+"ConvertFileTime:sourceAttribute,destinationAttribute"
+    '
+    Dim strAttributeName, strSourceAttribute, strDestinationAttribute, arrAttribs()
+As String
+
+    ' Replace the beginning of the flowrulename with nothing to find the attribute
+to be deleted
+    strAttributeName = FlowRuleName.Replace("ConvertFileTime:", "")
+    arrAttribs = strAttributeName.Split(","c)
+    strSourceAttribute = arrAttribs(0)
+    strDestinationAttribute = arrAttribs(1)
+
+    ' NOTE: The value will be invalid if it was never set
+    ' (9223372036854775807 (0x7FFFFFFFFFFFFFFF))
+    ' or 0 if it was set and then later cleared
+
+    Const AD_ACCOUNT_NO_EXPIRATION As Long = 9223372036854775807
+
+    If (strSourceAttribute = "accountExpires") Then
+         If (csentry(strSourceAttribute).Value = 0 OrElse
+csentry(strSourceAttribute).Value = AD_ACCOUNT_NO_EXPIRATION) Then
+              ' The value was cleared or never set
+              mventry(strDestinationAttribute).Value = "Never"
+        Else
+              ' The value has been set
+              Dim dtFileTime As DateTime =
+DateTime.FromFileTime(DateTime.Parse(csentry(strSourceAttribute).Value).ToFileTme)
+
+              mventry(strDestinationAttribute).Value = Format(dtFileTime, "yyyy-MM-
+dd")
+         End If
+    Else
+         ' We are not dealing with the accountExpires attribute, just decode it
+         Dim dtFileTime As DateTime =
+DateTime.FromFileTime(DateTime.Parse(csentry(strSourceAttribute).Value).ToFileTime)
+
+        mventry(strDestinationAttribute).Value = Format(dtFileTime, "yyyy-MM-dd")
+    End If
+    
+    
+====================================
+ElseIf FlowRuleName.StartsWith("ConvertFileTime:") Then
+    '
+    ' Reusable code to convert generalized time into string format
+    ' FlowRuleName will be passed as
+"ConvertFileTime:sourceAttribute,destinationAttribute"
+    '
+    Dim strAttributeName, strSourceAttribute, strDestinationAttribute, arrAttribs()
+As String
+
+    ' Replace the beginning of the flowrulename with nothing to find the attribute
+to be deleted
+    strAttributeName = FlowRuleName.Replace("ConvertFileTime:", "")
+    arrAttribs = strAttributeName.Split(","c)
+    strSourceAttribute = arrAttribs(0)
+    strDestinationAttribute = arrAttribs(1)
+
+    ' NOTE: The value will be invalid if it was never set
+    ' (9223372036854775807 (0x7FFFFFFFFFFFFFFF))
+    ' or 0 if it was set and then later cleared
+
+    Const AD_ACCOUNT_NO_EXPIRATION As Long = 9223372036854775807
+
+    If (strDestinationAttribute = "accountExpires") Then
+         If (mventry(strSourceAttribute).IsPresent = False) Then
+              ' The value in the metaverse is empty so remove the account
+expiration
+              csentry(strDestinationAttribute).IntegerValue = 0
+         Else
+              ' We should have a date value present to enforce
+              Dim dtFileTime As DateTime =
+DateTime.Parse(mventry(strSourceAttribute).Value)
+
+              csentry(strDestinationAttribute).IntegerValue =
+dtFileTime.ToFileTimeUtc()
+         End If
+    Else
+         ' We are not dealing with the accountExpires attribute, just encode it
+         Dim dtFileTime As DateTime =
+DateTime.Parse(mventry(strSourceAttribute).Value)
+
+         csentry(strDestinationAttribute).IntegerValue = dtFileTime.ToFileTimeUtc()
+    End If
+    
+    
+==================

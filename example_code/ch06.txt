@@ -1,0 +1,1407 @@
+chapter: Users
+==================
+> admod -config -rb cn=user-Display,cn=409,cn=DisplaySpecifiers,
+ createDialog::"%<sn>, %<givenName>"
+    
+    
+====================================
+' This code modifies the default ADUC display name.
+' ------ SCRIPT CONFIGURATION ------
+strNewDefault = "%<sn>, %<givenName>"
+strForestName = "<ForestDNSName>" ' e.g. adatum.com
+' ------ END CONFIGURATION ---------
+
+Set objRootDSE = GetObject("LDAP://" & strForestName & "/RootDSE")
+Set objDispSpec = GetObject("LDAP://cn=User-Display,cn=409," & _
+                              "cn=DisplaySpecifiers," & _
+                              objRootDSE.Get("ConfigurationNamingContext"))
+objDispSpec.Put "createDialog", strNewDefault
+objDispSpec.SetInfo
+WScript.Echo "New default for user's display name has been set to: " & _
+              strNewDefault
+    
+    
+====================================
+$strNewDefault = "%<sn>, %<givenName>"
+$objDN = 
+    "cn=User-Display,cn=409,cn=DisplaySpecifiers,cn=Configuration,<Forest Root DN>"
+get-QADObject -identity $objDN | set-QADObject 
+    -ObjectAttributes @{createDialog=$strNewDefault}
+    
+    
+====================================
+$root = [ADSI]"LDAP://RootDSE"
+$strNewDefault = "%<sn>, %<givenName>"
+$objDN = "cn=User-Display,cn=409,cn=DisplaySpecifiers,cn=Configuration,"
+$obj = [ADSI]("LDAP://" + $objDN + $root.rootDomainNamingContext)
+$obj.Put("createDialog", $strNewDefault)
+$obj.SetInfo()
+    
+    
+====================================
+cn=user-Display,cn=<Locale>,cn=DisplaySpecifiers,cn=Configuration,<ForestRootDN>
+    
+    
+====================================
+%<sn>, %<givenName>
+    
+    
+====================================
+> dsadd user "<UserDN>" -upn <UserUPN> -fn "<UserFirstName>"
+-ln "<UserLastName>" -display "<UserDisplayName>" -pwd <UserPasswd>
+    
+    
+====================================
+> admod -b "<UserDN>" -add objectClass::user
+   sAMAccountName::<SAMAccount> unicodepwd::<password> userAccountControl::512
+-kerbenc
+    
+    
+====================================
+' Taken from ADS_USER_FLAG_ENUM
+Const ADS_UF_NORMAL_ACCOUNT = 512
+
+set objParent = GetObject("LDAP://<ParentDN>")
+set objUser = objParent.Create("user", "cn=<UserName>") ' e.g. joes
+objUser.Put "sAMAccountName", "<UserName>"   ' e.g. joes
+objUser.Put "userPrincipalName", "<UserUPN>" ' e.g. joes@adatum.com
+objUser.Put "givenName", "<UserFirstName>"   ' e.g. Joe
+objUser.Put "sn", "<UserLastName>"           ' e.g. Smith
+objUser.Put "displayName", "<UserFirstName> <UserLastName>" ' e.g. Joe Smith
+objUser.SetInfo
+objUser.SetPassword("<Password>")
+
+objUser.Put "userAccountControl", ADFS_UF_NORMAL_ACCOUNT
+objUser.SetInfo
+    
+    
+====================================
+new-QADUser -name '<User CN>' -parentContainer '<Parent DN>' -UserPassword
+'<Password>' -FirstName '<User First Name>' -LastName '<User Last Name>'
+-UserPrincipalName '<User UPN>'
+    
+    
+====================================
+Set-Variable -name ADS_UF_NORMAL_ACCOUNT -value 512 -option Constant
+$objParent = [ADSI] "LDAP://<ParentDN>"
+$objUser = $objParent.Create("user", "cn=<User CN>")
+$objUser.put("samaccountname", "<UserName>")
+$objUser.Put("userPrincipalName", "<UserUPN>")
+$objUser.Put("givenName", "<UserFirstName>")
+$objUser.Put("sn", "<UserLastName>")
+$objUser.Put("displayName", "<UserFirstName> <UserLastName>")
+$objUser.SetInfo()
+$objUser.SetPassword("<Password>")
+$objUser.SetInfo()
+$objUser.Put("userAccountControl", $ADS_UF_NORMAL_ACCOUNT)
+$objUser.SetInfo()
+    
+    
+====================================
+> for /F %i in (1,1,1000) do dsadd user cn=User%i,ou=bulk,dc=adatum,dc=com
+-pwd User%i
+    
+    
+====================================
+dn: CN=Joe Richards, OU=Engineering, DC=adatum, DC=com
+changetype: add
+cn: Joe Richards
+objectClass: user
+samAccountName: jrichards
+    
+    
+====================================
+> ldifde -i -f <filename.ldf> -s <servername>
+    
+    
+====================================
+> admod -sc adau:4000;MyPassword1!;cn=testuser,ou=testou,dc=adatum,dc=com
+    
+    
+====================================
+' This code creates a large number of users with incremented user names
+' e.g. User1, User2, User3, ....
+' ------ SCRIPT CONFIGURATION ------
+
+intNumUsers = 1000               ' Number of users to create
+strParentDN = "<ParentDN>" ' e.g. ou=bulk,dc=emea,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+' Taken from ADS_USER_FLAG_ENUM
+Const ADS_UF_NORMAL_ACCOUNT = 512
+
+set objParent = GetObject("LDAP://" & strParentDN)
+for i = 1 to intNumUsers
+   strUser = "User" & i
+   Set objUser = objParent.Create("user", "cn=" & strUser)
+   objUser.Put "sAMAccountName", strUser
+   objUser.SetPassword(strUser)
+   objUser.SetInfo
+   objUser.Put "userAccountControl", ADS_UF_NORMAL_ACCOUNT
+   objUser.SetInfo
+   WScript.Echo "Created " & strUser
+next
+WScript.Echo ""
+WScript.Echo "Created " & intNumUsers & " users"
+    
+    
+====================================
+$parentDN = "<ParentDN>"
+$strPass = "MyPassword1"
+For ($i = 1; $i -le 1000; $i++) {
+  $strUserName = "User" + $i
+  New-QADUser -name $strUserName -parentContainer $parentDN -UserPassword $strPass 
+}
+    
+    
+====================================
+dn: <UserDN>
+changetype: add
+objectclass:
+inetorgperson
+sAMAccountName: <UserName>
+
+dn: <UserDN>
+changetype: modify
+add: userAccountControl
+userAccountControl: 512
+    
+    
+====================================
+> ldifde -i -f create_inetorgperson.ldf
+    
+    
+====================================
+> admod -b "cn=inetOrgPerson,cn=Users,dc=adatum,dc=com"
+   objectclass::inetOrgPerson sAMAccountName::inetOrgPerson -add
+    
+    
+====================================
+' This code creates an inetOrgPerson object
+
+set objParent = GetObject("LDAP://<ParentDN>")
+set objUser = objParent.Create("inetorgperson", "cn=<UserName>")
+
+' Taken from ADS_USER_FLAG_ENUM
+Const ADS_UF_NORMAL_ACCOUNT = 512
+
+objUser.Put "sAMAccountName", "<UserName>"
+objUser.Put "userPrincipalName", "<UserUPN>"
+objUser.Put "givenName", "<UserFirstName>"
+objUser.Put "sn", "<UserLastName>"
+objUser.Put "displayName", "<UserFirstName> <UserLastName>"
+objUser.SetInfo
+objUser.SetPassword("<Password>")
+objUser.SetInfo
+objUser.Put "userAccountControl", ADS_UF_NORMAL_ACCOUNT
+objUser.SetInfo
+    
+    
+====================================
+new-QADObject -ParentContainer "ou=Users,dc=adatum,dc=com" -type 'inetOrgPerson' -
+name '<UserName>' -ObjectAttributes
+@{samAccountName='<UserName>';userPrincipalName='<UserUPN>'}
+    
+    
+====================================
+$parentOU = [System.DirectoryServices.DirectoryEntry]
+"LDAP://ou=Users,dc=adatum,dc=com"
+$newInet = $parentOU.Create("inetOrgPerson","cn=test1")
+$newInet.put("samaccountName,"test1")
+$newInet.SetInfo()
+$newInet.Invoke("setpassword", "MyPassword1")
+$newInet.SetInfo()
+$newInet.Put("userAccountControl", 512)
+$newInet.SetInfo()
+    
+    
+====================================
+> admod -b "<UserDN>" objectClass:+:inetOrgPerson
+    
+    
+====================================
+' This code will convert a user object to inetOrgPerson.
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>" ' e.g. cn=jsmith,cn=Users,dc=adatum,dc=com
+strClass = "inetOrgPerson"
+' ------ END CONFIGURATION --------
+
+set objUser = GetObject("LDAP://" & strUserDN)
+objUsr.PutEx ADS_PROPERTY_APPEND,"objectClass",Array(strClass)
+objUsr.SetInfo
+    
+    
+====================================
+set-variable -name $ADS_PROPERTY_APPEND -value 3 -option constant
+$strClass = "inetOrgPerson"
+$objUser = "LDAP://<UserDN>"
+$objUser.PutEx($ADS_PROPERTY_APPEND, "objectClass", @($strClass))
+$objUser.SetInfo()
+    
+    
+====================================
+adfind -default -rb "OU=Marketing" -f
+"(&(objectcategory=person)(objectclass=User))" | admod
+objectcategory:+:inetOrgPerson -unsafe
+    
+    
+====================================
+> dsquery user "<ParentDN>" -limit 0 -scope onelevel | dsmod user -hmdir
+"\\<FileServerName>\$username$"
+    
+    
+====================================
+' This code sets the home drive of all users under a container
+' to be on a file server where the share name is the same as the user's
+' sAMAccountName.
+set objParent = GetObject("LDAP://<ParentDN>")
+objParent.Filter = Array("user")
+for each objUser in objParent
+    strSAM = objUser.Get("sAMAccountName")
+    Wscript.Echo " 
+Modifying " & strSAM
+    objUser.HomeDirectory = "\\<FileServerName>\" & _
+                            strSAM
+    objUser.SetInfo
+next
+    
+    
+====================================
+$strfileServer = "\\Server1\"
+$objOU = [ADSI] "LDAP://<OU DN>"
+$objOU.psbase.Children |% {
+    $uac = [int](($_.userAccountControl).ToString())
+    if (($_.objectClass -eq "user") -and (($uac -band 2) -eq 0))
+    {
+        $_.put("homeDirectory", $strFileServer + $_.sAMAccountName)
+        $_.SetInfo()
+    }
+}
+    
+    
+====================================
+> dsrm "<UserDN>"
+    
+    
+====================================
+> admod -b "<UserDN>" -del
+    
+    
+====================================
+strUserDN = "<UserDN>"
+set objUser = GetObject("LDAP://" & strUserDN)
+objUser.DeleteObject(0)
+    
+    
+====================================
+remove-QADObject -identity <User DN>
+    
+    
+====================================
+$usr = [ADSI] "LDAP://<User DN>"
+$usr.DeleteObject(0)
+    
+    
+====================================
+set objCont = GetObject("LDAP://ou=Sales,dc=adatum,dc=com")
+objCont.Delete "user", "cn=rallen"
+    
+    
+====================================
+> dsmod user "<UserDN>" -loscr <ScriptPath> -profile <ProfilePath>
+-hmdir <HomeDir> -hmdrv <DriveLetter>
+    
+    
+====================================
+> admod -b "<UserDN>" <attribute>::<NewValue>
+    
+    
+====================================
+' This code sets the various profile related attributes for a user.
+strUserDN = "<UserDN>" ' e.g. cn=jsmith,cn=Users,dc=adatum,dc=com
+set objUser = GetObject("LDAP://" & strUserDN)
+objUser.Put " 
+homeDirectory", "\\fileserver\" & objUser.Get("sAMAccountName")
+objUser.Put " 
+homeDrive", "z:"
+objUser.Put "profilePath", "\\fileserver\" & _
+            objUser.Get("sAMAccountName") & "\profile"
+objUser.Put "scriptPath", "login.vbs"
+objUser.SetInfo
+Wscript.Echo "Profile info for " & objUser.Get("sAMAccountName") & " updated"
+    
+    
+====================================
+get-QADUser -identity "<User DN>" | set-QADUser -HomeDirectory '\\server1\jsmith' 
+-HomeDrive 'Z:' -ProfilePath '\\server1\profiles\jsmith' -scriptpath
+'\\dc1\netlogon\script.vbs'
+    
+    
+====================================
+([ADSI]"LDAP://<User DN>") |% {
+    $_.put("homeDirectory", "\\server1\" + $_.sAMAccountName)
+    $_.put("homeDrive", "Z:")
+    $_.put("profilePath", "\\server1\profiles\" + $_.sAMAccountName)
+    $_.put("scriptPath", "\\dc1\netlogon\script.vbs")
+    $_.SetInfo()
+}
+    
+    
+====================================
+> dsmove "<UserDN>" -newparent "<NewParentDN>"
+    
+    
+====================================
+> admod -b "<Current User DN>" -move "<New Parent DN>"
+    
+    
+====================================
+' This code moves a user from one container to another.
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>"    ' e.g. cn=rallen,cn=users,dc=adatum,dc=com
+strOUDN = "<NewParentDN>" ' e.g. ou=Sales,dc=adatum,dc=com
+' ------ END CONFIGURATION ---------
+Set objUser = GetObject("LDAP://" & strUserDN)
+Set objOU = GetObject("LDAP://" & strOUDN)
+objOU.MoveHere objUser.ADsPath, objUser.Name
+    
+    
+====================================
+move-QADObject -Identity <UserDN> -NewParentContainer <New OU DN>
+    
+    
+====================================
+$objUser = [ADSI] "LDAP://<UserDN>"
+$objNewOU = [ADSI] "LDAP://<New Parent OU DN>"
+$objUser.psbase.MoveTo($objNewOU)
+    
+    
+====================================
+B:32:A9D1CA15768811D1ADED00C04FD8D5CD:CN=Users,<DomainDN>
+    
+    
+====================================
+B:32:A9D1CA15768811D1ADED00C04FD8D5CD:<NewUsersParent>,<DomainDN>
+    
+    
+====================================
+> redirusr "<DestinationDN>"
+    
+    
+====================================
+> dsmove "<UserDN>" -newname "<NewUserName>"
+    
+    
+====================================
+> dsmod user "<UserDN>" -upn "<NewUserUPN>" -ln "<NewUserLastName>"
+    
+    
+====================================
+> admod -b "<UserDN>" -rename "<NewUserName>"
+    
+    
+====================================
+' This code renames the RDN of a user and the sAMAccountName attribute.
+' ------ SCRIPT CONFIGURATION ------
+strParentDN = "<ParentDN>" ' e.g. cn=Users,dc=adatum,dc=com
+strUserOldName = "<OldUserName>" ' e.g. jsmith
+strUserNewName = "<NewUserName>" ' e.g. jim
+' ------ END CONFIGURATION --------
+
+set objCont = GetObject("LDAP://" & strParentDN)
+objCont.MoveHere "LDAP://cn=" & strUserOldName & "," & strParentDN, _
+                 "cn=" & strUserNewName
+set objUser = GetObject("LDAP://cn=" & strUserNewName & "," & strParentDN)
+objUser.Put "sAMAccountName", strUserNewName
+objUser.SetInfo
+WScript.Echo "Rename successful"
+    
+    
+====================================
+Get-QADUser -Identity <UserDN>
+ | Rename-QADObject -NewName '<NewCN>'
+    
+    
+====================================
+$objUser = [ADSI] "LDAP://<UserDN>"
+$strNewName = "<New User CN>"
+$objUser.psbase.Rename($strNewName)
+    
+    
+====================================
+' This code copies the attributes in the Attrs array from an
+' existing object to a new one.
+' ------ SCRIPT CONFIGURATION ------
+arrAttrs = Array("department","co","title","l", "c", "st")
+strParentDN = "<ParentContainer>" ' e.g. cn=Users,dc=adatum,dc=com
+strTemplateUser = "<TemplateUserName>" ' e.g. template-user-sales
+strNewUser = "<NewUserName>" ' e.g. jdoe
+strPassword = "<Password>"
+' ------ END CONFIGURATION ---------
+
+Const ADS_UF_NORMAL_ACCOUNT = 512 ' from ADS_USER_FLAG_ENUM
+
+Set objTemplate = GetObject("LDAP://cn=" & strTemplateUser & _
+                            "," & strParentDN)
+Set objParent = GetObject("LDAP://" & strParentDN)
+Set objUser = objParent.Create("user", "cn=" & strNewUser)
+
+objUser.Put "sAMAccountName", strNewUser
+
+for each strAttr in arrAttrs
+   objUser.Put strAttr, objTemplate.Get(strAttr)
+next
+
+objUser.SetInfo
+objUser.SetPassword(strPassword)
+objUser.SetInfo
+
+objUser.Put "userAccountControl", ADS_UF_NORMAL_ACCOUNT
+objUser.AccountDisabled = FALSE
+objUser.SetInfo
+
+WScript.Echo "Successfully created user"
+    
+    
+====================================
+$objTemplateUser = [ADSI] "LDAP://<TemplateUserDN>"
+$strNewUsername = "<NewUsername>"
+$strNewUserCN = "cn=<New User CN>"
+$objParentDN = [ADSI] "LDAP://<Parent DN for New User>"
+$arrAttrs = "department","co","title","l", "c", "st"
+$objNewUser = $objParentDN.Create("user", $strNewUserCN)
+$objNewUser.put("samaccountname",$strNewUserName)
+$objNewUser.SetInfo()
+$objNewUser.psbase.Invoke("setPassword", "MyPassword1")
+$objNewUser.SetInfo()
+$objNewUser.put("userAccountControl", 512)
+$objNewUser.SetInfo()
+foreach ($attr in $arrAttrs) {
+>> $newAttr = $objTemplateUser.$attr
+>> $objNewUser.put("" + $attr, "" + $newAttr)
+}
+$objNewUser.SetInfo()
+    
+    
+====================================
+> unlock <DomainControllerName> * -view
+    
+    
+====================================
+Get-QADuser -locked
+    
+    
+====================================
+(&(objectcategory=Person)(objectclass=user)(lockoutTime>DerivedTimestamp))
+    
+    
+====================================
+> unlock . *
+    
+    
+====================================
+> unlock . joe.smith
+    
+    
+====================================
+' This code unlocks a locked user.
+' ------ SCRIPT CONFIGURATION ------
+strUsername = "<UserName>"        ' e.g. jsmith
+strDomain = "<NetBiosDomainName>" ' e.g. ADATUM
+' ------ END CONFIGURATION --------
+
+set objUser = GetObject("WinNT://" & strDomain & "/" & strUsername)
+if objUser.IsAccountLocked = TRUE then
+   objUser.IsAccountLocked = FALSE
+   objUser.SetInfo
+   WScript.Echo "Account unlocked"
+else
+   WScript.Echo "Account not locked"
+end if
+    
+    
+====================================
+Unlock-QADUser -Identity <UserDN>
+    
+    
+====================================
+> adfind -default -s base Lockoutduration lockoutthreshold lockoutobservationwindow
+maxpwdage minpwdage minpwdlength pwdhistorylength pwdproperties
+    
+    
+====================================
+' This code displays the current settings for the password
+' and account lockout policies.
+' ------ SCRIPT CONFIGURATION ------
+strDomain = "<DomainDN>" ' e.g. adatum.com
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strDomain & "/RootDSE")
+set objDomain = GetObject("LDAP://" & _
+objRootDSE.Get("defaultNamingContext") )
+
+' Hash containing the domain password and lockout policy attributes
+' as keys and the units (e.g. minutes) as the values
+set objDomAttrHash = CreateObject("Scripting.Dictionary")
+objDomAttrHash.Add "lockoutDuration", "minutes"
+objDomAttrHash.Add "lockoutThreshold", "attempts"
+objDomAttrHash.Add "lockoutObservationWindow", "minutes"
+objDomAttrHash.Add "maxPwdAge", "minutes"
+objDomAttrHash.Add "minPwdAge", "minutes"
+objDomAttrHash.Add "minPwdLength", "characters"
+objDomAttrHash.Add "pwdHistoryLength", "remembered"
+objDomAttrHash.Add "pwdProperties", " "
+
+' Iterate over each attribute and print it
+for each strAttr in objDomAttrHash.Keys
+   if IsObject( objDomain.Get(strAttr) ) then
+      set objLargeInt = objDomain.Get(strAttr)
+      if objLargeInt.LowPart = 0 then
+         value = 0
+      else
+         value = Abs(objLargeInt.HighPart * 2^32 + objLargeInt.LowPart)
+         value = int ( value / 10000000 )
+         value = int ( value / 60 )
+      end if
+   else
+      value = objDomain.Get(strAttr)
+   end if
+   WScript.Echo strAttr & " = " & value & " " & objDomAttrHash(strAttr)
+next
+
+'Constants from DOMAIN_PASSWORD_INFORMATION
+Set objDomPassHash = CreateObject("Scripting.Dictionary")
+objDomPassHash.Add "DOMAIN_PASSWORD_COMPLEX", &h1
+objDomPassHash.Add "DOMAIN_PASSWORD_NO_ANON_CHANGE", &h2
+objDomPassHash.Add "DOMAIN_PASSWORD_NO_CLEAR_CHANGE", &h4
+objDomPassHash.Add "DOMAIN_LOCKOUT_ADMINS", &h8
+objDomPassHash.Add "DOMAIN_PASSWORD_STORE_CLEARTEXT", &h16
+objDomPassHash.Add "DOMAIN_REFUSE_PASSWORD_CHANGE", &h32
+
+' The PwdProperties attribute requires special processing because
+' it is a flag that holds multiple settings.
+for each strFlag In objDomPassHash.Keys
+  if objDomPassHash(strFlag) and objDomain.Get("PwdProperties") then
+    WScript.Echo " " & strFlag & " is enabled"
+  else
+    WScript.Echo " " & strFlag & " is disabled"
+  end If
+next
+    
+    
+====================================
+Get-QADObject adatum.com | format-list Name, *password*, *lockout*
+    
+    
+====================================
+Name                       :    adatum.com
+MinimumPasswordAge         :    1 day
+MaximumPasswordAge         :    42 days
+PasswordHistoryLength      :    24 passwords remembered
+MinimumPasswordLength      :    7 characters
+LockoutDuration            :    30 minutes
+LockoutThreshold           :    3 invalid login attempts
+ResetLockoutCounterAfter   :    30 minutes
+    
+    
+====================================
+value = Abs(objLargeInt.HighPart * 2^32 + objLargeInt.LowPart)
+    
+    
+====================================
+value = int ( value / 10000000 )
+    
+    
+====================================
+value = int ( value / 60 )
+    
+    
+====================================
+psomgr -applyto CN=joer,CN=Users,DC=ADATUM,DC=COM -pso TestPSO -forreal
+    
+    
+====================================
+Add-QADPasswordSettingsObjectAppliesTo -Identity <PSO DN> -AppliesTo <User DN>
+    
+    
+====================================
+psomgr.exe -effective <User DN>
+    
+    
+====================================
+get-QADUser -Identity <UserDN> -IncludedProperties msDS-ResultantPSO | format-list
+dn,msDS-ResultantPSO
+    
+    
+====================================
+> dsmod user <UserDN> -disabled no
+    
+    
+====================================
+> dsmod user <UserDN> -disabled yes
+    
+    
+====================================
+' This code will enable or disable a user.
+' ------ SCRIPT CONFIGURATION ------
+' Set to FALSE to disable account or TRUE to enable account
+strDisableAccount = FALSE
+strUserDN = "<UserDN>" ' e.g. cn=jsmith,cn=Users,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+set objUser = GetObject("LDAP://" & strUserDN)
+if objUser.AccountDisabled = TRUE then
+   WScript.Echo "Account for " & objUser.Get("cn") & " currently disabled"
+   if strDisableAccount = FALSE then
+      objUser.AccountDisabled = strDisableAccount
+      objUser.SetInfo
+      WScript.Echo "Account enabled"
+   end if
+else
+   WScript.Echo "Account currently enabled"
+   if strDisableAccount = TRUE then
+      objUser.AccountDisabled = strDisableAccount
+      objUser.SetInfo
+      WScript.Echo "Account disabled"
+   end if
+end if
+    
+    
+====================================
+enable-QADUser -Identity <User DN>
+disable-QADUser -Identity <User DN>
+    
+    
+====================================
+$objUser = [ADSI] "LDAP://<UserDN>"
+$objUser.psbase.InvokeSet('AccountDisabled', $true)
+$objUser.psbase.CommitChanges()
+
+---------alternate method
+$objUser = [ADSI] "LDAP://<UserDN>"
+$objUser.userAccountControl = ([int]$objUser.userAccountControl.ToString()) -bOR 2
+$objUser.SetInfo()
+    
+    
+====================================
+> dsquery user <DomainDN> -disabled
+    
+    
+====================================
+> adfind -bit -b <DomainDN> -f
+"&(objectcategory=person)(objectclass=user)(useraccountcontrol:AND:=2)"
+    
+    
+====================================
+' This code finds all disabled
+' user accounts in a domain.
+' ------ SCRIPT CONFIGURATION ------
+strDomainDN = "<DomainDN>" ' e.g. dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+strBase = "<LDAP://" & strDomainDN & ">;"
+strFilter = "(&(objectclass=user)(objectcategory=person)" & _
+            "(useraccountcontrol:1.2.840.113556.1.4.803:=2));"
+strAttrs = "name;"
+strScope = "subtree"
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+while Not objRS.EOF
+    Wscript.Echo objRS.Fields(0).Value
+    objRS.MoveNext
+wend
+    
+    
+====================================
+get-qaduser -disabled
+    
+    
+====================================
+$strFilter = "(&(objectcategory=person)(objectclass=user))"
+$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objDomain
+$objSearcher.Filter = ($strFilter) useraccountcontrol:1.2.840.113556.1.4.803:=2))")
+$objSearcher.FindAll()
+    
+    
+====================================
+> dsget user <UserDN> -memberof [-expand]
+    
+    
+====================================
+> getuserinfo \\<Domain>\<Username>
+    
+    
+====================================
+> whoami /groups
+    
+    
+====================================
+> memberof -u <Domain>\<User>
+    
+    
+====================================
+' This code displays the
+' group membership of a user.
+' It avoids infinite loops due to circular group nesting by
+' keeping track of the groups that have already been seen.
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>" ' e.g. cn=jsmith,cn=Users,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+set objUser = GetObject("LDAP://" & strUserDN)
+Wscript.Echo "Group membership for " & objUser.Get("cn") & ":"
+strSpaces = ""
+set dicSeenGroup = CreateObject("Scripting.Dictionary")
+DisplayGroups("LDAP://" & 
+strUserDN, strSpaces, dicSeenGroup)
+
+Function DisplayGroups ( strObjectADsPath, strSpaces, dicSeenGroup)
+
+   set objObject = GetObject(strObjectADsPath)
+   WScript.Echo strSpaces & objObject.Name
+   on error resume next ' Doing this to avoid an error when 
+                        ' memberOf is empty
+   if IsArray( objObject.Get("memberOf") ) then
+      colGroups = objObject.Get("memberOf")
+   else
+      colGroups = Array( objObject.Get("memberOf") )
+   end if
+
+   for each strGroupDN In colGroups
+      if Not dicSeenGroup.Exists(strGroupDN) then
+         dicSeenGroup.Add strGroupDN, 1
+         DisplayGroups "LDAP://" & strGroupDN, strSpaces & " ", dicSeenGroup
+      end if
+   next
+End Function
+    
+    
+====================================
+get-QADGroupMember -Identity <Group DN> -Indirect
+    
+    
+====================================
+Compare-Object (Get-QADGroupMember -Identity <Group DN>)(Get-QADGroupMember 
+-Identity <Group DN> -Indirect)
+    
+    
+====================================
+> adfind -b <DomainDN> -f  member=<UserDN> -dsq  | admod member:-:<UserDN> -unsafe
+    
+    
+====================================
+Const ADS_PROPERTY_DELETE = 4
+Const E_ADS_PROPERTY_NOT_FOUND = &h8000500D
+
+Set objUser = GetObject("LDAP://<UserDN>")
+arrMemberOf = objUser.GetEx("memberOf")
+
+If Err.Number = E_ADS_PROPERTY_NOT_FOUND Then
+    WScript.Echo "No group memberships found."
+    WScript.Quit
+End If
+
+For Each Group in arrMemberOf
+    Set objGroup = GetObject("LDAP://" & Group)
+    objGroup.PutEx ADS_PROPERTY_DELETE, _
+        "member", Array("<UserDN>")
+    objGroup.SetInfo
+Next
+    
+    
+====================================
+$objUser = get-QADUser -identity <User DN>
+foreach ($strGroup in $objUser.memberOf) {
+   $objGroup = get-QADGroup -identity $group
+   remove-QADGroupMember $objGroup -member $objUser
+}
+    
+    
+====================================
+$objUser = [ADSI] "LDAP://<User DN>"
+foreach ($strGroup in $objUser.memberOf) {
+   $objGroup = [ADSI]( "LDAP://" + $strGroup)
+   $objGroup.PutEx(4, "member", @($objUser.distinguishedName))
+   $objGroup.SetInfo()
+}
+    
+    
+====================================
+' This code first checks to see if the user's primary group is already
+' set to the specified group. If not it will a) add the user to the group
+' if not already a member and b) set the primary group id to the group.
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>"   ' e.g. cn=rallen,ou=Sales,dc=adatum,dc=com
+strGroupDN = "<GroupDN>" ' e.g. cn=SalesGroup,ou=Sales,dc=adatum,dc=com
+' ------ END CONFIGURATION ---------
+
+Const ADS_PROPERTY_APPEND = 3
+
+set objUser = GetObject("LDAP://" & strUserDN )
+WScript.Echo
+
+set objGroup = GetObject("LDAP://" & strGroupDN )
+objGroup.GetInfoEx Array("primaryGroupToken"), 0
+
+if objGroup.Get("primaryGroupToken") = objUser.Get("primaryGroupID") then
+   WScript.Echo "Primary group for user already set to " & strGroupDN
+   WScript.Quit
+end if
+
+intAddMember = 1
+for each strMemberDN in objUser.GetEx("memberOf")
+   if LCase(strMemberDN) = LCase(strGroupDN) then
+      intAddMember = 0
+      Exit for
+   end if
+next
+
+if intAddMember > 0 then
+   objGroup.PutEx ADS_PROPERTY_APPEND, "member", Array(strUserDN)
+   objGroup.SetInfo
+   WScript.Echo "Added " & strUserDN & " as member of " & strGroupDN
+end if
+
+objUser.Put "primaryGroupID", objGroup.Get("primaryGroupToken")
+objUser.SetInfo
+WScript.Echo "Changed primary group id of " & strUserDN & _
+             " to " & objGroup.Get("primaryGroupToken")
+    
+    
+====================================
+$objGroup = Get-QADGroup -Identity <GroupDN>
+$objUser = Get-QADUser -Identity <UserDN>
+$bool = $false
+$strGroupID = $objGroup.primaryGroupToken
+$colMembers = get-qadgroupmember -identity <GroupDN> -indirect
+foreach ($user in $colMembers) {
+>> if ($user.distinguishedName -eq $objUser.distinguishedName) { $bool = $true }
+if ($bool -eq $true) {
+>> add-QADMember -identity $objGroup -member $objUser
+}
+set-QADUser -Identity $objUser -ObjectAttributes @{primaryGroupID=$strGroupID}
+    
+    
+====================================
+> for /F "usebackq delims=""" %i in ('dsget user
+"<CurrentUserDN>" -memberof') do dsmod group %i -addmbr "<NewUserDN>"
+    
+    
+====================================
+> for /F "usebackq delims=""" %i in ('dsget user
+"<CurrentUserDN>" -memberof') do dsmod group %i -addmbr "<NewUserDN>"
+-rmmbr "<CurrentUserDN>"
+    
+    
+====================================
+> adfind -b <DomainDN> -f member=<Source User DN> -dsq | admod member:+:<Dest. User
+DN> -unsafe
+    
+    
+====================================
+' This code adds the "new" user to the groups the "current"
+' user is a member of
+' ------ SCRIPT CONFIGURATION -----
+strCurrentUserDN = "<CurrentUserDN>"
+' e.g. cn=jsmith,ou=Sales,dc=adatum,dc=com
+strNewUserDN = "<NewUserDN>"
+
+' ------ SCRIPT CONFIGURATION ------
+
+Const ADS_PROPERTY_APPEND = 3
+set 
+objCurrentUser = GetObject("LDAP://" & 
+strCurrentUserDN )
+set objNewUser = GetObject("LDAP://" & strNewUserDN )
+
+on error resume next
+WScript.Echo "Transfering groups from " & strCurrentUserDN & " to " & strNewUserDN
+for each strGroupDN in objCurrentUser.GetEx("memberOf")
+   set objGroup = GetObject("LDAP://" & strGroupDN)
+   objGroup.PutEx ADS_PROPERTY_APPEND, "member", Array( strNewUserDN )
+   objGroup.SetInfo
+   if Err then
+      WScript.Echo "Error adding user to group: " & strGroupDN
+   else
+      WScript.Echo "Added user to group: " & strGroupDN
+   end if
+next
+    
+    
+====================================
+$objCurrentUser = get-QADUser -Identity <CurrentUserDN>
+$objNewUser = get-QADUser -Identity <NewUserDN>
+$colGroups = $objCurrentUser.memberOf
+foreach ($group in $colGroups) {
+>> add-QADGroupMember -Identity $group -member $objNewUser
+>> }
+    
+    
+====================================
+$objCurrentUser = [ADSI] "LDAP://<CurentUserDN>"
+$objNewUser = [ADSI] "LDAP://<NewUserDN>"
+foreach ($strGroup in $objCurrentUser.memberOf) {
+   $objGroup = [ADSI]("LDAP://" + $strGroup)
+   $objGroup.PutEx(3, "member", @($objNewUser.distinguishedName))
+   $objGroup.SetInfo()
+}
+    
+    
+====================================
+> dsmod user <UserDN> -pwd *
+    
+    
+====================================
+> admod -b "<UserDN>" unicodepwd::<Password> -kerbenc
+    
+    
+====================================
+> admod -b "<UserDN>" #setpwd#::<NewPassword>
+    
+    
+====================================
+' This code sets the password for a user.
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>" ' e.g. cn=jsmith,cn=Users,dc=adatum,dc=com
+strNewPasswd = "<NewPasword>"
+' ------ END CONFIGURATION --------
+
+set objUser = GetObject("LDAP://" & strUserDN)
+objUser.SetPassword(strNewPasswd)
+Wscript.Echo "Password set for " & objUser.Get("cn")
+    
+    
+====================================
+set-QADUser -Identity <UserDN> -UserPassword '<PasswordString>'
+    
+    
+====================================
+$objUser = [ADSI] "LDAP://<UserDN>"
+$objUser.SetPassword("<PasswordString>")
+$objUser.SetInfo()
+    
+    
+====================================
+> dsmod user <UserDN> -canchpwd no
+    
+    
+====================================
+' This code disables a user's ability to change a password
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>" ' e.g. cn=rallen,ou=Sales,dc=adatum,dc=com
+' ------ END CONFIGURATION ---------
+
+Const ACETYPE_ACCESS_DENIED_OBJECT = 6
+Const ACEFLAG_OBJECT_TYPE_PRESENT = 1
+Const RIGHT_DS_CONTROL_ACCESS = 256
+Const CHANGE_PASSWORD_GUID = "{ab721a53-1e2f-11d0-9819-00aa0040529b}"
+
+set objUser = GetObject("LDAP://" & strUserDN)
+set objSD = objUser.Get("ntSecurityDescriptor")
+set objDACL = objSD.DiscretionaryAcl
+
+' Add a deny ACE for Everyone
+set objACE = CreateObject("AccessControlEntry")
+objACE.Trustee = "Everyone"
+objACE.AceFlags = 0
+objACE.AceType = ACETYPE_ACCESS_DENIED_OBJECT
+objACE.Flags = ACEFLAG_OBJECT_TYPE_PRESENT
+objACE.ObjectType = CHANGE_PASSWORD_GUID
+objACE.AccessMask = RIGHT_DS_CONTROL_ACCESS
+objDACL.AddAce objACE
+
+' Add a deny ACE for Self
+' (This is only necessary to prevent a user from
+' changing their own password.)
+set objACE = CreateObject("AccessControlEntry")
+objACE.Trustee = "Self"
+objACE.AceFlags = 0
+objACE.AceType = ACETYPE_ACCESS_DENIED_OBJECT
+objACE.Flags = ACEFLAG_OBJECT_TYPE_PRESENT
+objACE.ObjectType = CHANGE_PASSWORD_GUID
+objACE.AccessMask = RIGHT_DS_CONTROL_ACCESS
+objDACL.AddAce objACE
+
+objSD.DiscretionaryAcl = objDACL
+objUser.Put "nTSecurityDescriptor", objSD
+objUser.SetInfo
+WScript.Echo "Enabled no password changing for " & strUserDN
+    
+    
+====================================
+> dsmod user "<UserDN>" -mustchpwd yes
+    
+    
+====================================
+> admod -b "<UserDN>" pwdLastSet::0
+    
+    
+====================================
+' This code sets the flag that requires a
+' user to change their password
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>" ' e.g. cn=rallen,ou=Sales,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+set objUser = GetObject("LDAP://" & strUserDN)
+objUser.Put "pwdLastSet", 0
+objUser.SetInfo
+WScript.Echo "User must change password at next logon: " & strUserDN
+    
+    
+====================================
+set-QADUser -Identity <UserDN> -UserMustChangePassword
+    
+    
+====================================
+$objUser = [ADSI] "LDAP://<UserDN>"
+$objUser.Put("pwdLastSet", 0)
+$objUser.SetInfo()
+    
+    
+====================================
+> dsmod user "<UserDN>" -pwdneverexpires yes
+    
+    
+====================================
+' This code sets a user's password to never expire
+' See  for the code for the CalcBit function
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>" ' e.g. cn=rallen,ou=Sales,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+intBit = 65536
+strAttr = "userAccountControl"
+
+set objUser = GetObject("LDAP://" & strUserDN)
+intBitsOrig = objUser.Get(strAttr)
+intBitsCalc = CalcBit(intBitsOrig, intBit, TRUE)
+if intBitsOrig <> intBitsCalc then
+   objUser.Put strAttr, intBitsCalc
+   objUser.SetInfo
+   WScript.Echo "Changed " & strAttr & " from " & _
+                intBitsOrig & " to " & intBitsCalc
+else
+   WScript.Echo "Did not need to change " & strAttr & " (" & _
+                intBitsOrig & ")"
+end if
+    
+    
+====================================
+set-QADUser -Identity <UserDN> -PasswordNeverExpires
+    
+    
+====================================
+$objUser = [ADSI] "LDAP://<UserDN>"
+$currentUAC = [int]($objUser.userAccountControl.ToString())
+
+$newUAC = $currentUAC -bor 65536
+$objUser.put("userAccountControl", $newValue)
+$objUser.SetInfo()
+    
+    
+====================================
+> dsquery user -stalepwd <NumDaysSinceLastPwdChange>
+    
+    
+====================================
+> findexpacc -pwd
+    
+    
+====================================
+> adfind -b <UserDN> msDS-RevealedDSAs
+    
+    
+====================================
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>" ' e.g. cn=rallen,ou=Sales,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+set objUser = GetObject("LDAP://" & strUserDN)
+strRODCs = objUser.Get("msDS-RevealedDSAs")
+WScript.Echo strRODCs
+    
+    
+====================================
+> $objUser = [ADSI] "LDAP://<UserDN>"
+> $objUser.psbase.InvokeGet("msDS-RevealedDSAs")
+    
+    
+====================================
+' This code enables or disables a bit value in the userAccountControl attr.
+' See  for the code for the CalcBit function.
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>" ' e.g. cn=rallen,ou=Sales,dc=adatum,dc=com
+intBit = <BitValue> ' e.g. 65536
+boolEnable = <TrueOrFalse> ' e.g. TRUE
+' ------ END CONFIGURATION --------
+
+strAttr = "
+userAccountControl"
+set objUser = GetObject("LDAP://" & strUserDN)
+intBitsOrig = objUser.Get(strAttr)
+intBitsCalc = CalcBit(intBitsOrig, intBit, boolEnable)
+if intBitsOrig <> intBitsCalc then
+   objUser.Put strAttr, intBitsCalc
+   objUser.SetInfo
+   WScript.Echo "Changed " & strAttr & " from " & _
+                 intBitsOrig & " to " & intBitsCalc
+else
+   WScript.Echo "Did not need to change " & strAttr & " (" & _
+                 intBitsOrig & ")"
+end if
+    
+    
+====================================
+set-QADUser -Identity <UserDN> -PasswordNeverExpires
+set-QADUser -Identity <UserDN> -UserMustChangePassword
+enable-QADUser -Identity <UserDN>
+disable-QADUser - Identity <UserDN>
+    
+    
+====================================
+$intBit = <BitValue>
+$objUser = [ADSI] "LDAP://<UserDN>"
+$currentUAC = [int]($objUser.userAccountControl.ToString())
+
+$newUAC = $currentUAC -bor $intBit
+$objUser.put("userAccountControl", $newValue)
+    
+    
+====================================
+> dsmod user "<UserDN>" -acctexpires <NumDays>
+    
+    
+====================================
+' This code sets the
+' account expiration date for a user.
+' ------ SCRIPT CONFIGURATION ------
+strExpireDate = "<Date>" ' e.g. "07/10/2004"
+strUserDN = "<UserDN>" ' e.g. cn=rallen,ou=Sales,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+set objUser = GetObject("LDAP://" & strUserDN)
+objUser.AccountExpirationDate = strExpireDate
+objUser.SetInfo
+WScript.Echo "Set user " & strUserDN & " to expire on " & strExpireDate
+
+' These two lines would disable 
+account expiration for the user
+' objUser.Put "
+accountExpires", 0
+' objUser.SetInfo
+    
+    
+====================================
+set-QADUser -Identity <UserDN> -AccountExpires "08/08/2008"
+    
+    
+====================================
+> adfind -b <UserDN> lastLogonTimestamp -tdc
+    
+    
+====================================
+' This code prints the
+' last logon timestamp for a user.
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>" ' e.g. cn=rallen,ou=Sales,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+set objUser = GetObject("LDAP://" & strUserDN)
+set objLogon = objUser.Get("
+lastLogonTimestamp")
+intLogonTime = objLogon.HighPart * (2^32) + objLogon.LowPart
+intLogonTime = intLogonTime / (60 * 10000000)
+intLogonTime = intLogonTime / 1440
+WScript.Echo "Approx 
+last logon timestamp: " & intLogonTime + #1/1/1601#
+    
+    
+====================================
+> dsquery user -inactive <NumWeeks>
+    
+    
+====================================
+> oldcmp -report -users -b dc=adatum,dc=com -llts -age 90-sh
+    
+    
+====================================
+Days = Array _
+("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+Set objUser = GetObject("LDAP://<UserDN>")
+arrHours = objUser.Get("logonHours")
+
+For i = 1 To LenB(arrHours)
+    arrHoursBytes(i-1) = AscB(MidB(arrHours, i, 1))
+    WScript.Echo "MidB returns: " & MidB(arrHours, i, 1)
+    WScript.Echo "arrHoursBytes: " & arrHoursBytes(i-1)
+    wscript.echo vbcrlf
+Next
+
+intCounter = 0
+intLoopCounter = 0
+WScript.echo "Day Byte 1 Byte 2 Byte 3"
+For Each HourByte In arrHoursBytes
+    arrHourBits = DisplayLogonHourBits(HourByte)
+
+    If intCounter = 0 Then
+        WScript.STDOUT.Write Days(intLoopCounter) & Space(2)
+        intLoopCounter = intLoopCounter + 1
+    End If
+
+    For Each HourBit In arrHourBits
+        WScript.STDOUT.Write HourBit
+        intCounter = 1 + intCounter
+
+        If intCounter = 8 or intCounter = 16 Then
+           Wscript.STDOUT.Write Space(1)
+        End If
+
+        If intCounter = 24 Then
+           WScript.echo vbCr
+           intCounter = 0
+        End If
+    Next
+Next
+
+Function DisplayLogonHourBits(x)
+    Dim arrBits(7)
+    For i = 7 to 0 Step -1
+        If x And 2^i Then
+            arrBits(i) = 1
+        Else
+            arrBits(i) = 0
+        End If
+    Next
+    DisplayLogonHourBits = arrBits
+End Function
+    
+    
+====================================
+# similar algorithm to vbscript, but easier to understand
+# output is identical
+
+## user DN
+$userDN = "LDAP://<UserDN>"
+
+## powers of two in a single byte
+## can use [System.Math]::Pow(), but this is faster
+$pow2 = @(1, 2, 4, 8, 16, 32, 64, 128)
+
+## bit-state - a bit is either off (0) or on (1)
+$onoff = @("0", "1")
+
+function dump($byte)
+{
+    $result = ""
+    for ($i = 0; $i -lt 8; $i++)
+    {
+        $result += $onoff[($byte -band $pow2[$i]) -ne 0]
+    }
+    return $result
+}
+
+# days of the week, zero based
+$days = @("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", 
+"Friday", "Saturday")
+$day = 0
+
+# main
+$obj  = [ADSI]$userDN
+$arr = $obj.logonHours.Value
+
+for ($i = 0; $i -lt $arr.Length; $i += 3)
+{
+    $days[$day]
+    (dump $arr[$i]) + " " + (dump $arr[$i+1]) + " " + (dump $arr[$i+2])
+    $day += 1
+}
+    
+    
+====================================
+> adfind -b "<UserDN>" managedObjects
+    
+    
+====================================
+' This code displays the
+' managed objects for a user
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>" ' e.g. cn=jsmith,cn=Users,dc=adatum,dc=com
+' ------ END CONFIGURATION ---------
+
+On Error Resume Next
+set objUser = GetObject("LDAP://" & strUserDN)
+Wscript.Echo objUser.Get("cn") & "'s 
+Managed Objects:"
+colObjects = objUser.GetEx("managedObjects")
+if Err.Number = -2147463155 then
+   Wscript.Echo " none"
+else
+   for each strObjectDN in colObjects
+      Wscript.Echo " " & strObjectDN
+   next
+end if
+    
+    
+====================================
+$obj = [ADSI] "LDAP://<UserDN>"
+$obj.managedObjects
+    
+    
+====================================
+$obj = get-QADUser -identity "<UserDN>"
+$obj.DirectoryEntry.managedObjects
+    
+    
+====================================
+> admod -config -rb cn=Partitions
+     uPNSuffixes:+:treyresearch.com
+    
+    
+====================================
+' This code adds a new UPN suffix.
+' ------ SCRIPT CONFIGURATION ------
+Const ADS_PROPERTY_APPEND = 3
+strNewSuffix = "<NewSuffix>" ' e.g. othercorp.com
+strDomain = "<DomainDNSName>" ' e.g. adatum.com
+' ------ END CONFIGURATION --------
+set objRootDSE = GetObject("LDAP://" & strDomain & "/RootDSE")
+set objPartitions = GetObject("LDAP://cn=Partitions," & _
+                              objRootDSE.Get("ConfigurationNamingContext"))
+objPartitions.PutEx ADS_PROPERTY_APPEND, "uPNSuffixes", Array(strNewSuffix)
+objPartitions.SetInfo
+    
+    
+====================================
+set-variable -name $ADS_PROPERTY_APPEND -value 3 -option constant
+$strDN = "LDAP://cn=Partitions,cn=Configuration,<ForestDN>"
+$strNewSuffix = "<NewSuffix>"
+$objPart = [ADSI] $strDN
+$objPart.PutEx($ADS_PROPERTY_APPEND, "uPNSuffixes", @($strNewSuffix))
+$objPart.SetInfo()
+    
+    
+====================================
+> ntdsutil
+> activate instance ntds
+> authoritative restore
+> restore object <UserDN>
+> quit
+> exit
+    
+    
+====================================
+dsacls <User DN> /d EVERYONE:SDDT
+    
+    
+====================================
+Add-QADPermission -identity <User DN> -Account 'EVERYONE' -Rights
+'Delete,DeleteTree' -ApplyTo 'ThisObjectOnly'
+    
+    
+==================

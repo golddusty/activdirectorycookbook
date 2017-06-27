@@ -1,0 +1,1499 @@
+chapter: Site Topology
+==================
+dn: cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>
+changetype: add
+objectclass: site
+
+dn: cn=Licensing Site Settings,cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>
+changetype: add
+objectclass: licensingSiteSettings
+
+dn: cn=NTDS Site Settings,cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>
+changetype: add
+objectclass: nTDSSiteSettings
+
+dn: cn=Servers,cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>
+changetype: add
+objectclass: serversContainer
+    
+    
+====================================
+> ldifde -v -i -f create_site.ldf
+    
+    
+====================================
+> admod -config -rb "cn=<SiteName>,cn=sites" -add
+> admod -config -rb "cn=Licensing Site Settings,cn=<SiteName>,
+cn=sites" objectclass::licensingSiteSettings -add
+> admod -config -rb "cn=NTDS Site Settings,cn=<SiteName>,
+cn=sites" objectclass::nTDSSiteSettings -add
+> admod -config -rb cn=Servers,cn=<SiteName>,cn=sites"
+objectclass::serversContainer -add
+    
+    
+====================================
+' This code creates the objects that make up a site.
+' ------ SCRIPT CONFIGURATION ------
+strSiteName = "<SiteName>" ' e.g. Dallas
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+
+set objSitesCont = GetObject("LDAP://cn=sites," & _
+                             objRootDSE.Get("configurationNamingContext") )
+' Create the site
+set objSite = objSitesCont.Create("site","cn=" & strSiteName)
+objSite.SetInfo
+
+' Create the Licensing Site Settings object
+set objLicensing = objSite.Create("licensingSiteSettings", _
+                                  "cn=Licensing Site Settings")
+objLicensing.SetInfo
+
+' Create the NTDS Site Settings object
+set objNTDS = objSite.Create("nTDSSiteSettings","cn=NTDS Site Settings")
+objNTDS.SetInfo
+
+' Create the Servers container
+set objServersCont = objSite.Create("
+serversContainer","cn=Servers")
+objServersCont.SetInfo
+
+WScript.Echo "Successfully created site " & strSiteName
+    
+    
+====================================
+new-QADObject -name "<SiteName>" -type "site" -ParentContainer
+"cn=sites,cn=configuration,<ForestRootDN>"
+new-QADObject -name "Licensing Site Settings" -type "licensingSiteSettings" 
+-ParentContainer "cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>"
+new-QADObject -name "NTDS Site Settings" -type "nTDSSiteSettings" -ParentContainer
+"cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>"
+new-QADObject -name "Servers" -type "serversContainer" -ParentContainer
+"cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>"
+    
+    
+====================================
+$objCont = [ADSI] "LDAP://cn=Sites,cn=Configuration,<ForestRootDN>"
+$objSite = $objCont.Create("sites", "cn=<SiteName>"
+$objSite.SetInfo()
+$objLic = $objSite.Create("licensingSiteSettings", "cn=Licensing Site Settings")
+$objLic.SetInfo()
+$objNTDS = $objSite.Create("ntdsSiteSettings", "cn=NTDS Site Settings")
+$objNTDS.SetInfo()
+$objServers = $objSite.Create("serversContainer", "cn=Servers")
+$objServers.SetInfo()
+    
+    
+====================================
+> dsquery site
+    
+    
+====================================
+> adfind -sites -f (objectcategory=site)
+    
+    
+====================================
+> dsget site "<SiteName>"
+    
+    
+====================================
+> adfind -sites -rb "cn=<SiteName>"
+    
+    
+====================================
+' This code lists all of the site objects.
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objSitesCont = GetObject("LDAP://cn=sites," & _
+                             objRootDSE.Get("configurationNamingContext") )
+objSitesCont.Filter = Array("site")
+for each objSite in objSitesCont
+   Wscript.Echo " " & objSite.Get("cn")
+next
+    
+    
+====================================
+$strCategory = "site"
+$objForest = [System.DirectoryServices.ActiveDirectory.Forest]::getCurrentForest()
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objForest
+$objSearcher.Filter = ("(objectCategory=$strCategory)")
+$colResults = $objSearcher.FindAll()
+
+get-QADObject -searchroot "cn=sites,cn=configuration,<ForestRootDN>" -ldapfilter
+"objectcategory=site"
+    
+    
+====================================
+> dsmove "<SiteDN>" -newname "<NewSiteName>"
+    
+    
+====================================
+> admod -b "<SiteDN>" -rename "<NewSiteName>"
+    
+    
+====================================
+' This code renames a site object.
+' ------ SCRIPT CONFIGURATION ------
+strSiteOldName = "<OldSiteName>" ' e.g. Raleigh
+strSiteNewName = "<NewSiteName>" ' e.g. Raleigh-Durham
+' ------ END CONFIGURATION ---------
+
+Set objRootDSE = GetObject("LDAP://RootDSE")
+strConfigurationNC = objRootDSE.Get("configurationNamingContext")
+
+strSitesContainer = "LDAP://cn=Sites," & strConfigurationNC
+strOldSiteDN = "LDAP://cn=" & strSiteOldName & ",cn=Sites," & strConfigurationNC
+
+Set objSitesContainer = GetObject(strSitesContainer)
+objSitesContainer.MoveHere strOldSiteDN, strSiteNewName
+    
+    
+====================================
+Rename-QADObject -identity '<Site DN>' -NewName '<New site name>'
+    
+    
+====================================
+$obj = [ADSI] "LDAP://<Site DN>"
+$newName = "<New site name>"
+$obj.psbase.Rename($newName)
+    
+    
+====================================
+> dsrm <SiteDN> -subtree -noprompt
+    
+    
+====================================
+> admod -b "cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>" -del -treedelete
+    
+    
+====================================
+' This code deletes a site and all child containers.
+' ------ SCRIPT CONFIGURATION ------
+strSiteName = "<SiteName>" ' e.g. Dallas
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objSite = GetObject("LDAP://cn=" & strSiteName & ",cn=sites," & _
+                        objRootDSE.Get("configurationNamingContext") )
+objSite.DeleteObject(0)
+WScript.Echo "Successfully deleted site " & strSiteName
+    
+    
+====================================
+remove-QADObject -identity <Site DN>
+    
+    
+====================================
+$objSite = [ADSI] "LDAP://<Site DN>"
+$objSite.psbase.DeleteTree()
+    
+    
+====================================
+> dsacls cn=Sites,cn=Configuration,dc=adatum,dc=com /I:S /G
+adatum.com\SiteAdmins:WP;;managedBy
+    
+    
+====================================
+' This VBScript code grants write access to the managedBy attribute of a site.
+
+' ------ SCRIPT CONFIGURATION -------
+strSiteDN = "<SiteDN>"  ' e.g. cn=SalesGroup,ou=Sales,dc=adatum,dc=com"
+strUserOrGroup = "<UserOrGroup>"  ' e.g. joe@adatum.com or ADATUM\joe
+' ------ END CONFIGURATION ---------
+
+set objSite = GetObject("LDAP://" & strSiteDN)
+
+'############################
+' Constants
+'############################
+' ADS_ACETYPE_ENUM
+Const ADS_ACETYPE_ACCESS_ALLOWED_OBJECT = &h5
+Const ADS_FLAG_OBJECT_TYPE_PRESENT = &h1
+Const ADS_RIGHT_DS_WRITE_PROP = &h20
+
+' From schemaIDGUID of managedBy attribute
+Const MANAGEDBY_ATTRIBUTE = "{0296c120-40da-11d1-a9c0-0000f80367c1}"
+
+'############################
+' Create ACL
+'############################
+set objSD = objSite.Get("nTSecurityDescriptor")
+set objDACL = objSD.DiscretionaryAcl
+
+' Set WP for member attribute
+set objACE = CreateObject("AccessControlEntry")
+objACE.Trustee    = strUserOrGroup
+objACE.AccessMask = ADS_RIGHT_DS_WRITE_PROP
+objACE.AceFlags   = 0
+objACE.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+objACE.ObjectType = MANAGEDBY_ATTRIBUTE
+
+objDACL.AddAce objACE
+
+'############################
+' Set ACL
+'############################
+objSD.DiscretionaryAcl = objDACL
+objSite.Put "nTSecurityDescriptor", objSD
+objSite.SetInfo
+WScript.Echo "Delegated control of description attribute for " & strSiteDN & " to "
+& strUser
+    
+    
+====================================
+add-QADPermission -Identity <Site DN> -Account <User/Group DN> -Rights
+'WriteProperty' -Property 'managedBy' -ApplyTo 'ThisObjectOnly'
+    
+    
+====================================
+dn: cn=NTDS Site Settings,cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>
+changetype: modify
+replace: options
+options: 32
+-
+    
+    
+====================================
+> ldifde -i -f enable_univ_cache.ldf
+    
+    
+====================================
+>  adfind –config –rb "cn=NTDS Settings,cn=<SiteName>,cn=Sites" 
+options –adcsv | admod options::{{.:SET:32}}
+    
+    
+====================================
+' This code safely enables universal group caching for the specified site.
+' ------ SCRIPT CONFIGURATION ------
+strNTDS = "cn=NTDS Site Settings,<SiteDN>"    ' e.g. cn=NTDS Site
+                                                 ' Settings,cn=Raleigh,
+                                                 ' cn=Sites,cn=Configuration,
+                                                 ' dc=adatum,dc=com
+strAttr = "options"
+boolEnableCaching = TRUE  ' Set to false to disable UG caching
+intBit = 32
+' ------ END CONFIGURATION --------
+
+set objNTDS = GetObject("LDAP://" & strNTDSDN)
+intBitsOrig = objNTDS.Get(strAttr)
+intBitsCalc = CalcBit(intBitsOrig, intBit, boolEnableBit)
+
+if intBitsOrig <> intBitsCalc then
+   objNTDS.Put strAttr, intBitsCalc
+   objNTDS.SetInfo
+   WScript.Echo "Changed " & strAttr & " to " & boolEnableCaching
+else
+   WScript.Echo "Did not need to change " & strAttr & " value."
+end if
+
+Function CalcBit(intValue, intBit, boolEnable)
+
+   CalcBit = intValue
+
+   if boolEnableCaching = TRUE then
+      CalcBit = intValue Or intBit
+   else
+      if intValue And intBit then
+
+          CalcBit = intValue Xor intBit
+      end if
+   end if
+
+End Function
+    
+    
+====================================
+$objNTDS = [ADSI] "LDAP://cn=NTDS Site Settings,<Site DN>"
+$currentOptions = [int]($objNTDS.options.ToString())
+$newOptions = $currentOptions -bor 32
+$objNTDS.put("options", $newOptions)
+$objNTDS.setInfo()
+    
+    
+====================================
+dn: cn=<Subnet>,cn=subnets,cn=sites,cn=configuration,<ForestRootDN>
+changetype: add
+objectclass: subnet
+siteObject: cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>
+    
+    
+====================================
+> ldifde -v -i -f create_subnet.ldf
+    
+    
+====================================
+> admod -b "cn=<Subnet>,cn=subnets,cn=sites,cn=configuration,<ForestRootDN>"
+objectClass::subnet siteObject::"cn=<SiteName>,
+cn=sites,cn=configuration,<ForestRootDN>" -add
+    
+    
+====================================
+' This code creates a subnet object and associates it with a site.
+' ------ SCRIPT CONFIGURATION ------
+strSubnet = "<Subnet>"   ' e.g. 10.5.3.0/24
+strSite   = "<SiteName>" ' e.g. Dallas
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objSubnetsCont = GetObject("LDAP://cn=subnets,cn=sites," & _
+                               objRootDSE.Get("configurationNamingContext") )
+set objSubnet = objSubnetsCont.Create("subnet", "cn=" & strSubnet)
+objSubnet.Put "siteObject", "cn=" & strSite & ",cn=sites," & _
+                               objRootDSE.Get("configurationNamingContext")
+objSubnet.SetInfo
+WScript.Echo "Successfully created subnet " & strSubnet
+    
+    
+====================================
+new-QADObject -parentcontainer 'cn=subnets,cn=sites,cn=configuration,<ForestRootDN>
+-type 'subnet' -name '10.10.10.0/24' -ObjectAttributes @{siteObject='<SiteDN>'
+
+$parentDN = [ADSI] "LDAP://cn=subnets,cn=sites,cn=configuration,<ForestRootDN>"
+$newSubnet = $parentDN.Create("subnet","cn=10.10.10.0/24")
+$newSubnet.put("siteObject","<SiteDN>")
+$newSubnet.SetInfo()
+    
+    
+====================================
+> dsquery subnet
+    
+    
+====================================
+> dsget subnet "<Subnet>"
+    
+    
+====================================
+> adfind -subnets -f (objectCategory=subnet)
+    
+    
+====================================
+> adfind -subnets -rb "cn=<Subnet>"
+    
+    
+====================================
+' This code lists all the subnets stored in Active Directory.
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objSubnetsCont = GetObject("LDAP://cn=subnets,cn=sites," & _
+                               objRootDSE.Get("configurationNamingContext") )
+objSubnetsCont.Filter = Array("subnet")
+for each objSubnet in objSubnetsCont
+   Wscript.Echo " " & objSubnet.Get("cn")
+next
+    
+    
+====================================
+get-QADObject -searchRoot cn=subnets,cn=sites,cn=configuration,<ForestRootDN>
+-lDAPFilter "objectcategory=subnet"
+
+$strCategory = "subnet"
+$objForest = [System.DirectoryServices.ActiveDirectory.Forest]::getCurrentForest()
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objForest
+$objSearcher.Filter = ("(objectCategory=$strCategory)")
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+Wscript.Echo " " & objSubnet.Get("cn") & " : " & objSubnet.Get("siteObject")
+    
+    
+====================================
+Event Type:         Information
+Event Source:         NETLOGON
+Event Category:         None
+Event ID:         5778
+Date:                 1/27/2007
+Time:                 12:07:04 AM
+User:                 N/A
+Computer:         DC2
+Description:
+'JSMITH-W2K' tried to determine its site by looking up its IP address
+('10.21.85.34')
+in the Configuration\Sites\Subnets container in the DS. No subnet matched the IP
+address. Consider adding a subnet object for this IP address.
+    
+    
+====================================
+Event Type:         Warning
+Event Source:       NETLOGON
+Event Category:     None
+
+Event ID:         5807
+Date:             1/10/2007
+Time:             10:59:53 AM
+User:             N/A
+Computer:         DC1
+Description:
+During the past 4.18 hours there have been 21 connections to this Domain Controller
+from client machines whose IP addresses don't map to any of the existing sites in
+the enterprise. Those clients, therefore, have undefined sites and may connect to any
+Domain Controller including those that are in far distant locations from the
+clients.
+A client's site is determined by the mapping of its subnet to one of the existing
+sites. To move the above clients to one of the sites, please consider creating
+subnet object(s) covering the above IP addresses with mapping to one of the existing
+sites.
+The names and IP addresses of the clients in question have been logged on this
+computer in the following log file '%SystemRoot%\debug\netlogon.log' and,
+potentially, in the log file '%SystemRoot%\debug\netlogon.bak' created if the
+former log becomes full. The log(s) may contain additional unrelated debugging
+information.
+To filter out the needed information, please search for lines which contain text
+'NO_CLIENT_SITE:'. The first word after this string is the client name and the
+second word is the client IP address. The maximum size of the log(s) is 
+controlled by the following registry DWORD value
+'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\
+Netlogon\Parameters\LogFileMaxSize'; the default is 20000000 bytes. The current
+maximum size is 20000000 bytes. To set a different maximum size, create the above
+registry value and set the desired maximum size in bytes.
+
+For more information, see Help and Support Center at
+http://go.microsoft.com/fwlink/events.asp.
+    
+    
+====================================
+01/16 15:50:07 ADATUM: NO_CLIENT_SITE: ADATUM-TEST4 164.2.45.157
+01/16 15:50:29 ADATUM: NO_CLIENT_SITE: SJC-BACKUP 44.25.26.142
+01/16 16:19:58 ADATUM: NO_CLIENT_SITE: ADATUM-TEST4 164.2.45.157
+01/16 16:20:07 ADATUM: NO_CLIENT_SITE: ADATUM-TEST4 164.2.45.157
+01/16 16:50:07 ADATUM: NO_CLIENT_SITE: ADATUM-TEST4 164.2.45.157
+01/16 16:57:00 ADATUM: NO_CLIENT_SITE: JSMITH-W2K1 10.61.80.19
+01/16 17:20:08 ADATUM: NO_CLIENT_SITE: ADATUM-TEST4 164.2.45.157
+01/16 17:50:08 ADATUM: NO_CLIENT_SITE: ADATUM-TEST4 164.2.45.157
+    
+    
+====================================
+> dsrm cn=<SubnetName>,cn=subnets,cn=sites,cn=configuration,<ForestRootDN>
+    
+    
+====================================
+> admod -b cn=<SubnetName>,cn=subnets,cn=sites,cn=configuration,<ForestRootDN> -del
+    
+    
+====================================
+strSubnetName = "cn=<SubnetName>" ' e.g. "cn=10.0.0.0/8"
+strParentDN = cn=subnets,cn=sites,cn=configuration," _
+              & strForestDN
+strForestDN = "<ForestRootDN>" ' e.g. "dc=adatum,dc=com"
+
+set objContainer = GetObject("LDAP://" & strParentDN)
+objContainer.Delete "subnet", strSubnetName
+    
+    
+====================================
+remove-QADObject -identity <Subnet DN>
+    
+    
+====================================
+$objSubnet = [ADSI] "LDAP://<Subnet DN>"
+$objSubnet.psbase.DeleteTree()
+    
+    
+====================================
+strSubnetDN = "<SubnetDN>"
+set objSubnet = GetObject("LDAP://" & strObjectDN)
+objSubnet.DeleteObject(0)
+    
+    
+====================================
+> admod cn=<SubnetName>,cn=Subnets,cn=Sites,cn=Configuration,<ForestRootDN>
+siteObject::<NewSiteDN>
+    
+    
+====================================
+' This code updates the
+' site assignment of a subnet object.
+' ------ SCRIPT CONFIGURATION ------
+strNewSiteName = "<SiteName>" ' e.g. "Raleigh"
+strSubnetName = "<SubnetName>" ' e.g. "192.168.1.0/24"
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objSiteSettings = GetObject("LDAP://cn=" & _strSubnetName & _
+                                "cn=subnets,cn=sites," & _
+                                objRootDSE.Get("ConfigurationNamingContext"))
+
+objSiteSettings.Put "siteObject", _
+                    "cn=" & strNewSiteName & ",cn=sites," & _
+                    objRootDSE.Get("ConfigurationNamingContext")
+objSiteSettings.SetInfo
+WScript.Echo("Site membership updated successfully!")
+    
+    
+====================================
+set-QADObject -Identity <SubnetDN> -ObjectAttributes @{siteObject='<NewSiteDN>'}
+
+$objSubnet = [ADSI] "LDAP://<SubnetDN>"
+$objSubnet.put("siteObject","<SiteDN>"
+$objSubnet.SetInfo()
+    
+    
+====================================
+dn: cn=Dallas-SJC,cn=IP,cn=inter-site
+transports,cn=sites,cn=configuration,<ForestRootDN>
+changetype: add
+objectclass: siteLink
+siteList: cn=SJC,cn=sites,cn=configuration,<ForestRootDN>
+siteList: cn=Dallas,cn=sites,cn=configuration,<ForestRootDN>
+    
+    
+====================================
+> ldifde -v -i -f create_site_link.ldf
+    
+    
+====================================
+> admod -b "cn=<SiteLinkName>,cn=IP,cn=inter-site
+    transports,cn=sites,cn=configuration,<ForestRootDN>"
+    objectclass::sitelink
+    "sitelist:++:cn=<FirstSite>,cn=sites,cn=configuration,
+    <ForestRootDN>;
+    cn=<SecondSite>,cn=sites,cn=configuration,<ForestRootDN>"
+    cost::50 replInterval::180
+    -add
+    
+    
+====================================
+' This code creates a site link.
+' ------ SCRIPT CONFIGURATION ------
+intCost = 100            ' site link cost
+intReplInterval = 180    ' replication interval in minutes
+strSite1 = "<Site1>"     ' e.g. SJC
+strSite2 = "<Site2>"     ' e.g. Dallas
+strLinkName = strSite1 & " - " & strSite2
+' ------ END CONFIGURATION ---------
+
+' Taken from ADS_PROPERTY_OPERATION_ENUM
+const ADS_PROPERTY_UPDATE = 2
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objLinkCont = GetObject( _
+                   "LDAP://cn=IP,cn=Inter-site Transports,cn=sites," & _
+                   objRootDSE.Get("configurationNamingContext") )
+set objLink = objLinkCont.Create("siteLink", "cn=" & strLinkName)
+strSite1DN = "cn=" & strSite1 & ",cn=sites," & _
+               objRootDSE.Get("configurationNamingContext")
+strSite2DN = "cn=" & strSite2 & ",cn=sites," & _
+               objRootDSE.Get("configurationNamingContext")
+objLink.PutEx ADS_PROPERTY_UPDATE, "siteList", Array(strSite1DN,strSite2DN)
+objLink.Put "cost", intCost
+objLink.Put "replInterval", intReplInterval
+objLink.SetInfo
+
+WScript.Echo "Successfully created link: " & strLinkName
+    
+    
+====================================
+new-QADObject -ParentContainer "cn=IP,cn=Inter-site
+Transports,cn=sites,cn=configuration,<Forest Root DN>" -type "siteLink" -name
+"Site1-Site2" -ObjectAttributes @{cost=<Site Link Cost>;replInterval=<Replication
+interval>";siteList=@('<Site1 DN>','<Site2 DN>')}
+    
+    
+====================================
+[Collections.DictionaryEntry] $de = New-Object Collections.DictionaryEntry -
+argumentList Append, @('<Value1>',<Value2>')
+set-QADOject -Identity <Object DN> -ObjectAttributes @{siteLink=$de}
+    
+    
+====================================
+(&(objectcategory=siteLink)(siteList=cn=<SiteName>,
+cn=sites,cn=configuration,<ForestRootDN>))
+    
+    
+====================================
+> dsquery * "cn=inter-site transports,cn=sites,cn=configuration,<ForestRootDN>"
+-filter "(&(objectcategory=siteLink)(siteList=cn=<SiteName>,
+cn=sites,cn=configuration,<ForestRootDN>))" -scope subtree -attr name
+    
+    
+====================================
+> adfind -config -f "(&(objectcategory=siteLink)(siteList=cn=<SiteName>,
+cn=sites,cn=configuration,<ForestRootDN>))" name
+    
+    
+====================================
+' This code displays the site links associated with the specified site.
+' ------ SCRIPT CONFIGURATION ------
+strSiteName = "<SiteName>" ' e.g. Raleigh
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+strSiteDN = "cn=" & strSiteName & ",cn=sites," & _
+            objRootDSE.Get("ConfigurationNamingContext")
+
+strBase    = "<LDAP://cn=Inter-site Transports,cn=sites," _
+              & objRootDSE.Get("ConfigurationNamingContext") & ">;"
+strFilter  = "(&(objectcategory=siteLink)" & _
+             "(siteList=" & strSiteDN & "));"
+strAttrs   = "name;"
+strScope   = "subtree"
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+
+WScript.Echo "Total site links for " & strSiteName & ": " & objRS.RecordCount
+if objRS.RecordCount > 0 then
+
+   objRS.MoveFirst
+   while Not objRS.EOF
+       Wscript.Echo vbTab & objRS.Fields(0).Value
+       objRS.MoveNext
+   wend
+end if
+    
+    
+====================================
+get-QADObject -searchRoot "cn=sites,cn=configuration,dc=adatum,dc=com" -lDAPFilter
+"(&(objectcategory=siteLink)(siteList="<Site DN>"))"
+
+$strCategory = "siteLink"
+$objForest = [System.DirectoryServices.ActiveDirectory.Forest]::getCurrentForest()
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objForest
+$objSearcher.Filter = ("(&(objectcategory=siteLink)(siteList="<Site DN>"))")
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+dn: cn=<LinkName>,cn=IP,cn=inter-site
+transports,cn=sites,cn=configuration,<ForestRootDN>
+changetype: modify
+add: siteList
+
+siteList: cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>
+-
+    
+    
+====================================
+> ldifde -v -i -f modify_site_link.ldf
+    
+    
+====================================
+> admod -b "cn=<LinkName>,cn=IP,cn=inter-site
+transports,cn=sites,cn=configuration,<ForestRootDN>" siteList:+:"cn=<SiteName>
+,cn=sites,cn=configuration,<ForestRootDN>"
+    
+    
+====================================
+' This code adds a site to an existing site link.
+' ------ SCRIPT CONFIGURATION ------
+strSite = "<SiteName>" ' e.g. Burlington
+strLink = "<LinkName>" ' e.g. DEFAULTIPSITELINK
+' ------ END CONFIGURATION --------
+
+' Taken from ADS_PROPERTY_OPERATION_ENUM
+const ADS_PROPERTY_APPEND = 3
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objLink = GetObject("LDAP://cn=" & strLink & _
+                        ",cn=IP,cn=Inter-site Transports,cn=sites," & _
+                        objRootDSE.Get("configurationNamingContext") )
+strSiteDN = "cn=" & strSite & ",cn=sites," & _
+            objRootDSE.Get("configurationNamingContext")
+objLink.PutEx ADS_PROPERTY_APPEND, "siteList", Array(strSiteDN)
+objLink.SetInfo
+
+WScript.Echo "Successfully modified link: " & strLink
+    
+    
+====================================
+[Collections.DictionaryEntry] $de = New-Object Collections.DictionaryEntry 
+-argumentList Append, @('<Site1 DN>','<Site2 DN>')
+set-QADOject -Identity <SiteLink DN> -ObjectAttributes @{siteLink=$de}
+    
+    
+====================================
+$objSiteLink = [ADSI] "LDAP://<SiteLink DN>"
+$strSite1DN = "<Site1 DN>"
+$strSite2DN = "<Site2 DN>"
+$ADS_PROPERTY_APPEND = 3
+$objSiteLink.PutEx($ADS_PROPERTY_APPEND, "siteList" @($strSite1DN, $strSite2DN))
+$objSiteLink.SetInfo()
+    
+    
+====================================
+$ADS_PROPERTY_CLEAR = 1
+$objSiteLink.PutEx($ADS_PROPERTY_CLEAR,"siteList",0)
+    
+    
+====================================
+dn: cn=<LinkName>,cn=IP,cn=inter-site
+transports,cn=sites,cn=configuration,<ForestRootDN>
+changetype: modify
+replace: cost
+cost: <LinkCost>
+-
+    
+    
+====================================
+> ldifde -v -i -f modify_site_link_cost.ldf
+    
+    
+====================================
+> admod -b "cn=<LinkName>,cn=IP,cn=inter-site
+transports,cn=sites,cn=configuration,<ForestRootDN>" cost::<LinkCost>
+    
+    
+====================================
+' This code modifies the cost attribute of a site link.
+' ------ SCRIPT CONFIGURATION ------
+strLink = "<SiteLink>" ' e.g. DEFAULTIPSITELINK
+intCost = <LinkCost>   ' e.g. 200
+' ------ END CONFIGURATION ---------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objLink = GetObject("LDAP://cn=" & strLink & _
+                        ",cn=IP,cn=Inter-site Transports,cn=sites," & _
+                        objRootDSE.Get("configurationNamingContext") )
+objLink.Put "cost", intCost
+objLink.SetInfo
+
+WScript.Echo "Successfully modified link: " & strLink
+    
+    
+====================================
+set-QADObject -Identity <SiteLinkDN> -ObjectAttributes @{cost=<New Cost>}
+
+$objSiteLink = [ADSI] "LDAP://<SiteLinkDN>"
+$objSiteLink.put("cost", "<New Cost>")
+$objSiteLink.SetInfo()
+    
+    
+====================================
+>  adfind –b cn=<SiteLinkName>,cn=IP,cn=Inter-site 
+Transports,cn=Sites,cn=Configuration,cn=<ForestRootDN>" 
+options –adcsv | admod options::{{.:SET:1}}
+    
+    
+====================================
+' This code safely modifies a bit flag attribute.
+' ------ SCRIPT CONFIGURATION -------
+strSiteLink = "<SiteLinkDN>"   ' e.g. cn=jsmith,cn=users,dc=adatum,dc=com
+strAttr = "options"
+boolEnableBit = <TRUEorFALSE>  ' e.g. TRUE to enable
+intBit = 1
+' ------ END CONFIGURATION ---------
+
+set objSiteLink = GetObject("LDAP://" & strSiteLink)
+intBitsOrig = objSiteLink.Get(strAttr)
+intBitsCalc = CalcBit(intBitsOrig, intBit, boolEnableBit)
+
+if intBitsOrig <> intBitsCalc then
+   objSiteLink.Put strAttr, intBitsCalc
+   objSiteLink.SetInfo
+   WScript.Echo "Changed " & strAttr & " from " & intBitsOrig & " to " &
+intBitsCalc
+else
+   WScript.Echo "Did not need to change " & strAttr & " (" & intBitsOrig & ")"
+end if
+
+Function CalcBit(intValue, intBit, boolEnable)
+   CalcBit = intValue
+
+   if boolEnable = TRUE then
+      CalcBit = intValue Or intBit
+   else
+      if intValue And intBit then
+         CalcBit = intValue Xor intBit
+      end if
+   end if
+
+End Function
+    
+    
+====================================
+$objSiteLink = [ADSI] "<Site Link DN>"
+$currentOptions = [int]($objSiteLink.options.ToString())
+$newOptions = $currentOptions -bor 1
+$objSiteLink.put("options", $newOptions)
+$objSiteLink.setInfo()
+    
+    
+====================================
+> admod -b cn=<SiteLinkName>,cn=<TransportName>,cn=Inter-site
+Transports,cn=sites,cn=configuration,<ForestRootDN> schedule::0
+    
+    
+====================================
+' The following script will display the availability schedule
+' for a particular site link.
+
+Days = Array _
+    ("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+
+Set objSiteLink = GetObject _
+    ("LDAP://<SiteLinkDN>")
+arrHours = objSiteLink.Get("schedule")
+
+For i = 1 To LenB(arrHours)
+    arrHoursBytes(i-1) = AscB(MidB(arrHours, i, 1))
+    WScript.Echo "MidB returns: " & MidB(arrHours, i, 1)
+    WScript.Echo "arrHoursBytes: " & arrHoursBytes(i-1)
+    wscript.echo vbcrlf
+Next
+
+intCounter = 0
+
+intLoopCounter = 0
+WScript.echo "Day Byte 1 Byte 2 Byte 3"
+For Each HourByte In arrHoursBytes
+    arrHourBits = DisplayLogonHourBits(HourByte)
+
+    If intCounter = 0 Then
+        WScript.STDOUT.Write Days(intLoopCounter) & Space(2)
+        intLoopCounter = intLoopCounter + 1
+    End If
+
+    For Each HourBit In arrHourBits
+        WScript.STDOUT.Write HourBit
+        intCounter = 1 + intCounter
+
+        If intCounter = 8 or intCounter = 16 Then
+            Wscript.STDOUT.Write Space(1)
+        End If
+
+        If intCounter = 24 Then
+            WScript.echo vbCr
+            intCounter = 0
+        End If
+    Next
+Next
+
+Function DisplayLogonHourBits(x)
+    Dim arrBits(7)
+    For i = 7 to 0 Step -1
+        If x And 2^i Then
+            arrBits(i) = 1
+        Else
+            arrBits(i) = 0
+        End If
+    Next
+    DisplayLogonHourBits = arrBits
+End Function
+    
+    
+====================================
+' This code can disable site link transitivity and site
+' schedules for all links of the IP transport.
+' The code for the CalcBit function can be found in 
+------ SCRIPT CONFIGURATION ------
+boolDisableTrans = <TrueOrFalse>    ' e.g. TRUE
+boolIgnoreSchedules = <TrueOrFalse> ' e.g. FALSE
+' ------ END CONFIGURATION ---------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objLink = GetObject( _
+                  "LDAP://cn=IP,cn=Inter-site Transports,cn=sites," & _
+                  objRootDSE.Get("configurationNamingContext") )
+
+intBitsOrg = objLink.Get("options")
+intBits = CalcBit(intBitsOrig, 2, boolDisableTrans)
+intBits = CalcBit(intBitsOrig, 1, boolIgnoreSchedules)
+
+if objLink.Get("options") <> intBits then
+   objLink.Put "options", intBits
+   objLink.SetInfo
+   WScript.Echo "Successfully modified link transitivity for " & strLink
+else
+   WScript.Echo "Did not need to modify link transitivity for " & strLink
+end if
+    
+    
+====================================
+$objIP = [ADSI] "LDAP://cn=IP,cn=Inter-site
+Transports,cn=sites,cn=configuration,<ForestRootDN>"
+$currentOptions = [int]($objIP.options.ToString())
+$newOptions = $currentOptions -bor 2
+$newOptions = $currentOptions -bor 1
+$objIP.put("options", $newOptions)
+$objIP.setInfo()
+    
+    
+====================================
+dn: cn=<BridgeName>,cn=IP,cn=inter-site
+transports,cn=sites,cn=configuration,<ForestRootDN>
+changetype: add
+objectclass: siteLinkBridge
+siteLinkList: cn=<Link1>,cn=IP,cn=Inter-site
+Transports,cn=sites,cn=configuration,<ForestRootDN>
+siteLinkList: cn=<Link2>,cn=IP,cn=Inter-site
+Transports,cn=sites,cn=configuration,<ForestRootDN>
+    
+    
+====================================
+> ldifde -v -i -f create_site_link_bridge.ldf
+    
+    
+====================================
+> admod -b "cn=<BridgeName>,cn=IP,cn=inter-site
+     transports,cn=sites,cn=configuration,<ForestRootDN>"
+     objectclass::sitelinkBridge
+     "sitelist:++:cn=<FirstSiteLink>,cn=IP,cn=inter-site
+     transports,cn=sites,cn=configuration,<ForestRootDN>;
+     cn=<SecondSiteLink>,cn=IP,cn=inter-site
+     transports,cn=sites,cn=configuration,<ForestRootDN>"
+     -add
+    
+    
+====================================
+' This code creates a site link bridge between two site links.
+' ------ SCRIPT CONFIGURATION -------
+strLink1 = "<Link1>"      ' e.g. AMS-LON
+strLink2 = "<Link2>"      ' e.g. SJC-RTP
+strBridge = "<BridgeName>"' e.g. AMER-EUR
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objLinkCont = GetObject( _
+                   "LDAP://cn=IP,cn=Inter-site Transports,cn=sites," & _
+                   objRootDSE.Get("configurationNamingContext") )
+set objBridge = objLinkCont.Create("siteLinkBridge", "cn=" & strBridge)
+strLink1DN = "cn=" & strLink1 & _
+             ",cn=IP,cn=Inter-site Transports,cn=sites," & _
+             objRootDSE.Get("configurationNamingContext")
+strLink2DN = "cn=" & strLink2 & _
+             ",cn=IP,cn=Inter-site Transports,cn=sites," & _
+             objRootDSE.Get("configurationNamingContext")
+objBridge.Put "siteLinkList", Array(strLink1DN,strLink2DN)
+objBridge.SetInfo
+
+WScript.Echo "Successfully created bridge: " & strBridge
+    
+    
+====================================
+$strSiteLink1 = <SiteLink1 DN>
+$strSiteLink2 = <SiteLink2 DN>
+new-QADObject -parentContainer "cn=IP,cn=Inter-site
+Transports,cn=sites,cn=configuration,<ForestRootDN>" -type "siteLinkBridge" -name
+"New SiteLinkBridge" -ObjectAttributes
+@{siteLinkList=@($strSiteLink1,$strSiteLink2)}
+    
+    
+====================================
+$ADS_PROPERTY_APPEND = 3
+$strSiteLink1 = <SiteLink1 DN>
+$strSiteLink2 = <SiteLink2 DN>
+$objLinkCont = [ADSI] "LDAP://cn=IP,cn=Inter-site
+Transports,cn=sites,cn=configuration,<ForestRootDN>"
+$objBridge = $objLinkCont.Create("siteLinkBridge","cn=NewSiteLinkBridge")
+$objBridge.putEx($ADS_PROPERTY_APPEND,"siteLinkList",@($strSiteLink1,$strSiteLink2)}
+    
+    
+====================================
+> repadmin /bridgeheads [<ServerName>] [/verbose]
+    
+    
+====================================
+' This code finds the bridgehead servers for the specified site.
+' ------ SCRIPT CONFIGURATION ------
+strServer = "<ServerName>" ' server to target query against, e.g. dc01
+strSite = "<SiteName>" ' name of site to query
+                           ' e.g. Default-First-Site-Name
+' ------ END CONFIGURATION --------
+
+set objIadsTools = CreateObject("IADsTools.DCFunctions")
+intRes = objIadsTools.GetBridgeHeadsInSite(Cstr(strServer),Cstr(strSite),0)
+
+if intRes = -1 then
+   Wscript.Echo "Bridge heads: " & objIadsTools.LastErrorText
+   WScript.Quit
+end if
+
+for count = 1 to intRes
+   WScript.Echo vbTab & objIadsTools.BridgeHeadName(count)
+next
+    
+    
+====================================
+dn: cn=<DCName>,cn=servers,cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>
+changetype: modify
+add: bridgeheadTransportList
+bridgeheadTransportList: cn=IP,cn=Inter-site
+Transports,cn=sites,cn=configuration,<ForestRootDN>
+-
+    
+    
+====================================
+> ldifde -v -i -f set_bridgehead_server.ldf
+    
+    
+====================================
+Admod -b cn=<DCName>,cn=servers,cn=<SiteName>,
+cn=sites,cn=configuration,<ForestRootDN> bridgeheadTransportList:+:"cn=IP,
+cn=Inter-site transports,cn=sites,cn=configuration,<ForestRootDN>"
+    
+    
+====================================
+' This code sets a preferred bridgehead server for a particular transport.
+' ------ SCRIPT CONFIGURATION ------
+strServer     = "<DomainControllerName>"  ' e.g. dc1
+strServerSite = "<SiteName>"              ' e.g. Default-First-Site-Name
+strTransport  = "<TransportName>"         ' e.g. either IP or SMTP
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+
+set objServer = GetObject("LDAP://cn=" & strServer & ",cn=Servers,cn=" & _
+                          strServerSite & ",cn=sites," & _
+                          objRootDSE.Get("configurationNamingContext") )
+objServer.Put "bridgeHeadTransportList", _
+              "cn=" & strTransport & ",cn=Inter-site Transports,cn=sites," _
+                    & objRootDSE.Get("configurationNamingContext")
+objServer.SetInfo
+
+WScript.Echo "Successfully set bridgehead server: " & strServer
+    
+    
+====================================
+set-QADObject -Identity "cn=<DC Name>,cn=servers,cn=<Site
+Name>,cn=sites,cn=configuration,<ForestRootDN>" -ObjectAttributes
+@{bridgeHeadTransportList="cn=IP,cn=Inter-site
+Transports,cn=sites,cn=configuration,<ForestRootDN>"}
+
+$objDC = [ADSI} "LDAP://n=<DC Name>,cn=servers,cn=<Site
+Name>,cn=sites,cn=configuration,<ForestRootDN>"
+$objDC.put("bridgeHeadTransportList","cn=IP,cn=Inter-site
+Transports,cn=sites,cn=configuration,<ForestRootDN>"
+$objDC.SetInfo()
+    
+    
+====================================
+> dsquery server [-site <SiteName>]
+    
+    
+====================================
+> adfind -sites -f (objectcategory=server)
+    
+    
+====================================
+> adfind -config -rb cn=<SiteName>,cn=sites -f (objectcategory=server)
+    
+    
+====================================
+' This code lists the server objects in the site topology.
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+strBase    =  "<LDAP://cn=sites," & _
+              objRootDSE.Get("ConfigurationNamingContext") & ">;"
+strFilter = "(objectcategory=server);"
+strAttrs = "distinguishedName;"
+strScope = "subtree"
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+while Not objRS.EOF
+    Wscript.Echo objRS.Fields(0).Value
+    objRS.MoveNext
+wend
+    
+    
+====================================
+get-QADObject -SearchRoot "cn=sites,cn=configuration,<ForestRootDN>" -lDAPFilter
+"objectcategory=server"
+
+$strCategory = "server"
+$objRoot = [ADSI] "LDAP://cn=sites,cn=configuration,<ForestRootDN>"
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objForest
+$objSearcher.Filter = ("(objectCategory=$strCategory)")
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+> dsmove "cn=<ServerName>,cn=servers,cn=<CurrentSite>,
+cn=sites,cn=configuration,<ForestRootDN>" -newparent "cn=servers,cn=<NewSite>,
+cn=sites,cn=configuration,<ForestRootDN>"
+    
+    
+====================================
+> admod -b "cn=<ServerName>,cn=servers,cn=<CurrrentSite>,
+cn=sites,cn=configuration,<ForestRootDN> -move "cn=servers,cn=<NewSite>,
+cn=sites,cn=configuration,<ForestRootDN>
+    
+    
+====================================
+' This code moves a server to a different site.
+' ------ SCRIPT CONFIGURATION ------
+' Should contain the common name of the server object
+strDC = "<DomainControllerName>" ' e.g. dc02
+' Name of servers current site
+strCurrentSite = "<CurrentSite>" ' e.g. Default-First-Site-Name
+' Name of site you want to move server to
+
+strNewSite = "<NewSite>"         ' e.g. Raleigh
+' ------ END CONFIGURATION --------
+
+strConfigDN = GetObject("LDAP://RootDSE").Get("configurationNamingContext")
+strServerDN = "LDAP://cn=" & strDC & ",cn=servers,cn=" & _
+                           strCurrentSite & ",cn=sites," & strConfigDN
+strNewParentDN = "LDAP://cn=servers,cn=" & strNewSite & ",cn=sites," & strConfigDN
+
+Set objCont = GetObject(strNewParentDN)
+objCont.MoveHere strServerDN, "cn=" & strDC
+    
+    
+====================================
+move-QADObject -identity "cn=<DC
+Name>,cn=servers,cn=<CurrentSiteName>,cn=sites,cn=configuration,<ForestRootDN>" 
+-newparent "cn=servers,cn=<NewSiteName>,cn=sites,cn=configuration,<ForestRootDN>"
+    
+    
+====================================
+$obj = [System.DirectoryServices.DirectoryEntry] "LDAP://cn=<DC
+Name>,cn=servers,cn=<CurrentSiteName>,cn=sites,cn=configuration,<ForestRootDN>"
+$newParent = [ADSI]
+"LDAP://cn=servers,cn=<NewSiteName>,cn=sites,cn=configuration,<ForestRootDN>"
+$obj.psbase.MoveTo($newParent)
+    
+    
+====================================
+> reg add HKLM\System\CurrentControlSet\Services\Netlogon\Parameters /v
+"SiteCoverage" /t REG_MULTI_SZ /d <Site1>\0<Site2>
+    
+    
+====================================
+' This code configures a domain controller to cover multiple sites.
+' ------ SCRIPT CONFIGURATION ------
+strDC = "<DomainControllerName>" ' e.g. dc01
+arrSites = Array("<Site1>","<Site2>") ' Array of sites to cover
+' ------ END CONFIGURATION ---------
+
+strNTDSReg = "SYSTEM\CurrentControlSet\Services\Netlogon\Parameters"
+const HKLM = &H80000002
+set objReg = GetObject("winmgmts:\\" & strDC & "\root\default:StdRegProv")
+objReg.SetMultiStringValue HKLM, strNTDSReg, _
+                     "SiteCoverage", _
+                     arrSites
+WScript.Echo "Site coverage set for " & strDC
+    
+    
+====================================
+$strRegPath = "HKLM:\System\CurrentControlSet\Services\Netlogon\Parameters"
+$arrSites = "<Site1 DN>", "<Site2 DN>"
+new-ItemProperty -path $strRegPath -name "SiteCoverage" -type MultiString
+set-ItemProperty -path $strRegPath -name "SiteCoverage -value $arrSites
+    
+    
+====================================
+> nltest /server:<DomainControllerName> /DsGetSiteCov
+    
+    
+====================================
+> reg add HKLM\System\CurrentControlSet\Services\Netlogon\Parameters /v
+AutoSiteCoverage /t REG_DWORD /d 0
+    
+    
+====================================
+' This code disables auto site coverage.
+strNetlogonReg = "SYSTEM\CurrentControlSet\Services\Netlogon\Parameters"
+const HKLM = &H80000002
+Set objReg = GetObject("winmgmts:root\default:StdRegProv")
+
+objReg.SetDWORDValue HKLM, strNetlogonReg, "AutoSiteCoverage", 0
+WScript.Echo "Site coverage disabled"
+    
+    
+====================================
+$strRegPath = "HKLM:\System\CurrentControlSet\Services\Netlogon\Parameters"
+set-ItemProperty -path $strRegPath -name "AutoSiteCoverage" -value 0
+    
+    
+====================================
+> nltest /server:<HostName> /DsGetSite
+    
+    
+====================================
+set objIadsTools = CreateObject("IADsTools.DCFunctions")
+strSite = objIadsTools.DsGetSiteName("<HostName>")
+Wscript.Echo "Site: " & strSite
+    
+    
+====================================
+> reg add HKLM\System\CurrentControlSet\Services\Netlogon\Parameters /v SiteName /t
+REG_SZ /d <SiteName>
+    
+    
+====================================
+' This code forces the host the script is run on to use a particular host.
+' ------ SCRIPT CONFIGURATION ------
+strSite = "<SiteName>" ' e.g. Raleigh
+' ------ END CONFIGURATION ---------
+
+strNetlogonReg = "SYSTEM\CurrentControlSet\Services\Netlogon\Parameters"
+const HKLM = &H80000002
+set objReg = GetObject("winmgmts:root\default:StdRegProv")
+objReg.SetStringValue HKLM, strNetlogonReg, "SiteName", strSite
+WScript.Echo "Set SiteName to " & strSite
+    
+    
+====================================
+$strRegPath = "HKLM:\System\CurrentControlSet\Services\Netlogon\Parameters"
+set-ItemProperty -path $strRegPath -name "SiteName" -value "<SiteName>"
+    
+    
+====================================
+> repadmin /add <PartitionDN> <DC1DNSName> <DC2DNSName>
+    
+    
+====================================
+> repadmin /showconn [<DomainControllerName>]
+    
+    
+====================================
+' This code lists the connection objects for a server.
+' ------ SCRIPT CONFIGURATION ------
+strServer = "<ServerName>" ' e.g. dc01
+strSite = "<SiteName>"     ' e.g. MySite1
+' ------ END CONFIGURATION ---------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objNTDSCont = GetObject("LDAP://cn=NTDS Settings,cn=" & strServer & _
+                            ",cn=servers,cn=" & strSite & ",cn=sites," & _
+                             objRootDSE.Get("configurationNamingContext") )
+
+objNTDSCont.Filter = Array("ntdsConnection")
+WScript.Echo " Connection objects for " & strSite & "\" & strServer
+for each objConn in objNTDSCont
+   if objConn.Get("options") = 0 then
+      Wscript.Echo " " & objConn.Get("cn") & " (MANUAL)"
+   else
+      Wscript.Echo " " & objConn.Get("cn") & " (AUTO)"
+   end if
+next
+    
+    
+====================================
+get-QADObject -SearchRoot "cn=NTDS Settings,cn=<DC Name>,cn=servers,cn=<Site
+Name>,cn=configuration,<ForestRootDN>" -lDAPFilter "objectclass=ntdsConnection"
+
+$strCategory = "ntdsConnection"
+$objSearchRoot = [ADSI] "LDAP://cn=NTDS Settings,cn=<DC Name>,cn=servers,
+cn=<SiteName>,cn=configuration,<ForestRootDN>"
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objForest
+$objSearcher.Filter = ("(objectCategory=$strCategory)")
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+> adlb /server:<DomainControllerName> -site:<SiteName> [/commit] [/verbose]
+    
+    
+====================================
+> repadmin /istg <DomainControllerName>
+
+> dsquery * "cn=NTDS Site Settings,cn=<SiteName>,cn=sites,<ForestRootDN>" -attr
+intersitetopologygenerator
+    
+    
+====================================
+> adfind -config -rb "cn=ntds site settings,cn=<SiteName>,cn=sites"
+intersitetopologygenerator
+    
+    
+====================================
+' This code finds the ISTG for the specified site.
+' ------ SCRIPT CONFIGURATION ------
+strSiteName = <SiteName> ' e.g. Raleigh
+' ------ END CONFIGURATION ---------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objSiteSettings = GetObject("LDAP://cn=NTDS Site Settings,cn=" & _
+                                strSiteName & ",cn=sites," & _
+                                objRootDSE.Get("ConfigurationNamingContext"))
+on error resume next
+strISTGDN = objSiteSettings.Get("interSiteTopologyGenerator")
+if (strISTGDN <> "") then
+   set objNTDSSettings = GetObject("LDAP://" & strISTGDN)
+   set objServer = GetObject( objNTDSSettings.Parent )
+   WScript.Echo "ISTG for site " & strSiteName & " is " & _
+                objServer.Get("dnsHostName")
+else
+   WScript.Echo "No ISTG found for site " & strSiteName
+end if
+    
+    
+====================================
+> admod -b "cn=NTDS Site Settings,cn=<SiteName>,
+cn=sites,cn=configuration,<ForestRootDN>" interSiteTopologyGenerator::"cn=NTDS Site
+Settings,cn=<NewISTGName>,cn=servers,cn=<SiteName>,
+cn=sites,cn=configuration,<ForestRootDN>
+    
+    
+====================================
+' This code forces a new ISTG in a site.
+' ------ SCRIPT CONFIGURATION ------
+' Name of site to transfer ISTG in
+strSiteName = "<SiteName>" ' e.g. Raleigh
+' Site the new ISTG server is in
+strNewISTGSite = "<ISTGSiteName>" ' e.g. Raleigh
+' Common name of server object for new ISTG
+strNewISTGName = "<DomainControllerName>" ' e.g. dc01
+' ------ END CONFIGURATION ---------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objSiteSettings = GetObject("LDAP://cn=NTDS Site Settings,cn=" & _
+                                strSiteName & ",cn=sites," & _
+                                objRootDSE.Get("ConfigurationNamingContext"))
+strCurrentISTG = objSiteSettings.Get("interSiteTopologyGenerator")
+
+objSiteSettings.Put "interSiteTopologyGenerator", _
+                    cn=NTDS Settings,cn=" & strNewISTGName & _
+                    ",cn=servers,cn=" & strNewISTGSite & ",cn=sites," & _
+                    objRootDSE.Get("ConfigurationNamingContext")
+objSiteSettings.SetInfo
+WScript.Echo "ISTG for " & strSiteName & " changed from:"
+WScript.Echo " " & strCurrentISTG
+WScript.Echo "To"
+WScript.Echo " " & objSiteSettings.Get("interSiteTopologyGenerator")
+    
+    
+====================================
+$strNewISTG = "cn=NTDS Settings,cn=<DC
+Name>,cn=servers,cn=<SiteName>,cn=configuration,<ForestRootDN>"
+set-QADObject -Identity "cn=NTDS
+Settings,cn=<SiteName>,cn=Configuration,<ForestRootDN>" -ObjectAttributes
+@{interSiteTopologyGenerator=$strNewISTG}
+
+$strNewISTG = "cn=NTDS Settings,cn=<DC
+Name>,cn=servers,cn=<SiteName>,cn=configuration,<ForestRootDN>"
+$objSiteSettings = [ADSI] "LDAP://cn=NTDS
+Settings,cn=<SiteName>,cn=Configuration,<ForestRootDN>"
+$objSiteSettings.put("interSiteTopologyGenerator", $strNewISTG)
+$objSiteSettings.SetInfo()
+    
+    
+====================================
+> repadmin /kcc <DomainControllerName>
+    
+    
+====================================
+' This code triggers the KCC on a DC.
+' ------ SCRIPT CONFIGURATION ------
+strDC = "<DomainControllerName>" ' e.g. dc01
+' ------ END CONFIGURATION ---------
+
+set objIadsTools = CreateObject("IADsTools.DCFunctions")
+intRes = objIadsTools.TriggerKCC(Cstr(strDC),0)
+
+if intRes = -1 then
+   Wscript.Echo objIadsTools.LastErrorText
+else
+   Wscript.Echo "KCC successfully triggered"
+end if
+    
+    
+====================================
+> dcdiag /v /test:kccevent /s:<DomainControllerName>
+    
+    
+====================================
+get-Eventlog "Directory Service" | where-object {$_.Source -eq "NTDS KCC" } |
+format-list
+    
+    
+====================================
+dn: cn=NTDS Site Settings,<SiteName>,cn=sites,cn=configuration,<ForestRootDN>
+changetype: modify
+replace: options
+options: <OptionsValue>
+-
+    
+    
+====================================
+> ldifde -v -i -f disable_kcc.ldf
+    
+    
+====================================
+>  adfind –b "cn=NTDS Settings,cn=<SiteName>,cn=Sites,cn=configuration,<ForestRootDN>" 
+options –adcsv | admod options::{{.:SET:<OptionsValue>}}
+    
+    
+====================================
+' This code disables the KCC for a site.
+' ------ SCRIPT CONFIGURATION ------
+strSiteName = "<SiteName>" ' e.g. Default-First-Site-Name
+boolDisableIntra = TRUE    ' set to TRUE/FALSE to disable/enable intra-site
+boolDisableInter = TRUE    ' set to TRUE/FALSE to disable/enable inter-site
+' ------ END CONFIGURATION ---------
+
+strAttr = "options"
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objObject = GetObject("LDAP://cn=NTDS Site Settings,cn=" _
+                          & strSiteName & ",cn=sites," & _
+                          objRootDSE.Get("configurationNamingContext") )
+
+intBitsOrig = objObject.Get(strAttr)
+intBitsCalc = CalcBit(intBitsOrig, 1, boolDisableIntra)
+WScript.Echo "Checking the KCC Intra-site generation flag:"
+if intBitsOrig <> intBitsCalc then
+   objObject.Put strAttr, intBitsCalc
+   objObject.SetInfo
+   WScript.Echo "  Changed " & strAttr & " from " & _
+                intBitsOrig & " to " & intBitsCalc
+
+else
+   WScript.Echo " Did not need to change " & strAttr & _
+                " (" & intBitsOrig & ")"
+end if
+
+intBitsOrig = objObject.Get(strAttr)
+intBitsCalc = CalcBit(intBitsOrig, 16, boolDisableInter)
+WScript.Echo "Checking the KCC Inter-site generation flag:"
+if intBitsOrig <> intBitsCalc then
+   objObject.Put strAttr, intBitsCalc
+   objObject.SetInfo
+   WScript.Echo " Changed " & strAttr & " from " & intBitsOrig & _
+                " to " & intBitsCalc
+else
+   WScript.Echo " Did not need to change " & strAttr & " (" & _
+                intBitsOrig & ")"
+end if
+    
+    
+====================================
+$objNTDS = [ADSI] "LDAP://cn=<Site DN>"
+
+$currentOptions = [int]($objNTDS.options.ToString())
+
+$newOptions = $currentOptions -bor <Options Value> # 1, 16, or 17
+$objNTDS.put("options", $newOptions)
+$objNTDS.setInfo()
+    
+    
+====================================
+> reg add HKLM\System\CurrentControlSet\Services\NTDS\Parameters /v "Repl topology
+update period (secs)" /t REG_DWORD /d <NumSecs>
+    
+    
+====================================
+' This code changes the interval in which the KCC runs.
+' ------ SCRIPT CONFIGURATION -------
+intNumSecs = <NumSecs> ' Number of seconds between intervals
+                       ' 900 is default
+' ------ END CONFIGURATION ---------
+
+strNetlogonReg = "SYSTEM\CurrentControlSet\Services\NTDS\Parameters"
+const HKLM = &H80000002
+Set objReg = GetObject("winmgmts:root\default:StdRegProv")
+objReg.SetDWORDValue HKLM, strNetlogonReg, _
+                     "Repl topology update period (secs)", _
+                     intNumSecs
+WScript.Echo "KCC interval set to " & intNumSecs
+    
+    
+====================================
+$strRegPath = "HKLM:\System\CurrentControlSet\Services\NTDS\Parameters"
+set-ItemProperty -path $strRegPath -name "Repl topology update period (secs)" -
+value "<# of secs>
+    
+    
+==================

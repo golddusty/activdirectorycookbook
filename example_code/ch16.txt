@@ -1,0 +1,424 @@
+chapter: Backup, Recovery, DIT Maintenance, and Deleted Objects
+==================
+CN=jsmith\0ADEL:fce1ca8e-a5ec-4a29-96e1-c8013e533d2c,CN=Deleted
+Objects,DC=adatum,DC=com
+    
+    
+====================================
+> wbadmin start systemstatebackup –backuptarget:<BackupTarget>
+    
+    
+====================================
+> ntdsutil
+> ntdsutil: activate instance ntds
+> ntdsutil: snapshot
+> snapshot: create
+    
+    
+====================================
+> ntdsutil
+> ntdsutil: activate instance ntds
+> ntdsutil: snapshot
+> snapshot: list all
+    
+    
+====================================
+> dsamain /dbpath <Path to database file> /ldapport <Port #>
+    
+    
+====================================
+' The following code will extract a user's description field
+' from an AD snapshot, and then inserts it into the "live"
+' copy of Active Directory
+'---------------- SCRIPT CONFIGURATION ----------------
+strComputerName = "<ComputerName>" ' Use "localhost" for the local DC
+strPort = "<PortNumber>"           ' the snapshot port number to connect to
+strObjDN = "<ObjectDN>"            ' the DN of the object to connect to
+'-------------------------------------------------------
+
+Set objSnapshot = GetObject("LDAP://" & strComputerName & _
+                          ":" & strPort & "/" & strObjDN)
+Set objLive = GetObject("LDAP://" & strObjDN)
+
+strSnapshotDesc = objSnapshot.description
+objLive.put("description", strSnapshotDesc)
+ObjLive.SetInfo()
+    
+    
+====================================
+$objSnapshot = [ADSI] "LDAP://<DC Name>:<PortNumber>/<ObjectDN>"
+$objLive = [ADSI] "LDAP://<ObjectDN>"
+$strDesc = $objSnapshot.Description
+$objLive.Put("description", $strDesc)
+$objLive.SetInfo()
+    
+    
+====================================
+> bcdedit /set safeboot dsrepair
+    
+    
+====================================
+> bcdedit /deletevalue safeboot
+    
+    
+====================================
+> ntdsutil
+> set dsrm password
+> reset password on server DC1
+    
+    
+====================================
+> wbadmin start systemstaterecovery -version:<BackupDate>-<BackupTime>
+    
+    
+====================================
+> ntdsutil
+> auth restore
+> restore object cn=jsmith,ou=Sales,dc=adatum,dc=com
+> q
+    
+    
+====================================
+> ntdsutil
+> auth restore
+> restore subtree ou=Sales,dc=adatum,dc=com
+> q
+    
+    
+====================================
+> ntdsutil
+> auth restore
+> restore database
+> q
+    
+    
+====================================
+> ntdsutil
+> files
+> integrity
+> q
+> q
+> ntdsutil
+> semantic database analysis
+> verbose on
+> go
+    
+    
+====================================
+> ntdsutil
+> files
+> move db to <DriveAndFolder>
+> q
+> q
+> ntdsutil
+> files
+> move logs to <DriveAndFolder>
+> q
+> q
+    
+    
+====================================
+> ntdsutil
+> files
+> recover
+> q
+> q
+    
+    
+====================================
+> ntdsutil
+> files
+> repair
+> q
+> q
+    
+    
+====================================
+dn:
+changetype: modify
+replace:
+DoOnlineDefrag
+DoOnlineDefrag: 180
+-
+    
+    
+====================================
+> ldifde -v -i -f online_defrag.ldf
+    
+    
+====================================
+> admod -b "" doOnlineDefrag::180
+    
+    
+====================================
+' This code kicks off an online defrag to run for up to 180 seconds.
+' ------ SCRIPT CONFIGURATION ------
+strDC = "<DomainControllerName>" ' e.g. dc01
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strDC & "/RootDSE")
+objRootDSE.Put "DoOnlineDefrag", 180
+objRootDSE.SetInfo
+WScript.Echo "Successfully initiated an online defrag"
+    
+    
+====================================
+$rootDSE = [ADSI] "LDAP://<DomainControllerName>/RootDSE"
+$rootDSE.put("DoOnlineDefrag", "180")
+$rootDSE.SetInfo()
+    
+    
+====================================
+> esentutl /g "<PathToNTDS.DIT>"/!10240 /8 /o
+    
+    
+====================================
+> esentutl /r "<PathToNTDS.DIT>" /!10240 /8 /o
+    
+    
+====================================
+> esentutl /p "<PathToNTDS.DIT>" /!10240 /8 /o
+    
+    
+====================================
+Operation failed because the database was inconsistent.
+
+Initialize jet database failed; cannot access file.
+
+Error while performing soft recovery.
+    
+    
+====================================
+> fsutil file createnew <PathToNTDS.DIT>\reservefile 256000000
+    
+    
+====================================
+> fsutil file createnew c:\windows\ntds\reservefile 256000000
+    
+    
+====================================
+> reg add HKLM\System\CurrentControlSet\Services\NTDS\Diagnostics /v "6 Garbage
+Collection" /t REG_DWORD /d 1
+    
+    
+====================================
+' This code enables logging of DIT
+' whitespace information in the event log.
+' ------ SCRIPT CONFIGURATION ------
+strDCName = "<DomainControllerName>" ' e.g. dc1
+' ------ END CONFIGURATION --------
+
+const HKLM = &H80000002
+strNTDSReg = "SYSTEM\CurrentControlSet\Services\NTDS\Diagnostics"
+set objReg = GetObject("winmgmts:\\" & strDCName & "\root\default:StdRegProv")
+objReg.SetDWORDValue HKLM, strNTDSReg, "6 Garbage Collection", 1
+WScript.Echo "Garbage Collection logging set to 1"
+    
+    
+====================================
+$strRegPath = "HKLM:\System\CurrentControlSet\Services\NTDS\Parameters"
+Set-ItemProperty -path $strRegPath -name "6 Garbage Collection" -value "1"
+    
+    
+====================================
+Event Type:         Information
+Event Source:       NTDS Database
+Event Category:     Garbage Collection
+Event ID:           1646
+Date:               5/25/2003
+Time:               9:52:46 AM
+User:               NT AUTHORITY\ANONYMOUS LOGON
+Computer:           DC1
+Description:
+Internal event:     The Active Directory database has the following amount of free 
+hard disk space remaining.
+
+Free hard disk space (megabytes): 100
+Total allocated hard disk space (megabytes): 1024
+    
+    
+====================================
+> ntdsutil files "compact to <TempDriveAndFolder>" q q
+    
+    
+====================================
+> del <CurrentDriveAndFolder>\*.log
+    
+    
+====================================
+> move <CurrentDriveAndFolder>\ntds.dit <TempDriveAndFolder>\ntds_orig.dit
+> move <TempDriveAndFolder>\ntds.dit <CurrentDriveAndFolder>\ntds.dit
+    
+    
+====================================
+dn: cn=Directory Service,cn=Windows NT,cn=Services,cn=Configuration,<ForestRootDN>
+changetype: modify
+replace: garbageCollPeriod
+garbageCollPeriod: <IntervalInHours>
+-
+    
+    
+====================================
+> ldifde -v -i -f change_garbage_period.ldf
+    
+    
+====================================
+> adfind -config -rb "cn=Directory Servce,cn=Windows NT,cn=Services" -s base -dsq |
+admod garbageCollPeriod::<IntervalInHours>
+    
+    
+====================================
+' This code changes the default garbage-collection interval.
+' ------ SCRIPT CONFIGURATION ------
+intGarbageColl = <IntervalInHours>
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objDSCont = GetObject("LDAP://cn=Directory Service,cn=Windows NT," & _
+             "cn=Services," & objRootDSE.Get("configurationNamingContext") )
+objDSCont.Put "garbageCollPeriod", intGarbageColl
+objDSCont.SetInfo
+WScript.Echo "Successfully set the garbage collection interval to " & _
+             intGarbageColl
+    
+    
+====================================
+set-QADObject -Identity "cn=Directory Service,cn=Windows
+NT,cn=Services,cn=Configuration,<ForestRootDN> -ObjectAttributes
+@{garbageCollPeriod=<IntervalInHours>}
+
+$ds = [ADSI] "LDAP:// cn=Directory Service,cn=Windows
+NT,cn=Services,cn=Configuration,<ForestRootDN>"
+$ds.Put("garbageCollPeriod", "<IntervalInHours>"
+$ds.SetInfo()
+    
+    
+====================================
+cn=DirectoryService,cn=WindowsNT,cn=Services,cn=Configuration,<RootDomainDN>
+    
+    
+====================================
+> reg add HKLM\System\CurrentControlSet\Services\NTDS\Diagnostics /v "6 Garbage
+Collection" /t REG_DWORD /d 3
+    
+    
+====================================
+' This code enables garbage-collection logging.
+' ------ SCRIPT CONFIGURATION ------
+strDCName = "<DomainControllerName>"
+intValue = 3
+' ------ END CONFIGURATION --------
+
+const HKLM = &H80000002
+strNTDSReg = "SYSTEM\CurrentControlSet\Services\NTDS\Diagnostics"
+set objReg = GetObject("winmgmts:\\" & strDCName & "\root\default:StdRegProv")
+objReg.SetDWORDValue HKLM, strNTDSReg, "6 Garbage Collection," intValue
+WScript.Echo "Garbage Collection logging enabled"
+    
+    
+====================================
+$strRegPath = "HKLM:\System\CurrentControlSet\Services\NTDS\Parameters"
+Set-ItemProperty -path $strRegPath -name "6 Garbage Collection" -value "3"
+    
+    
+====================================
+Event Type:          Information
+Event Source:        NTDS General
+Event Category:      Garbage Collection
+Event ID:            1006
+Date:                6/24/2008
+Time:                11:29:31 AM
+User:                NT AUTHORITY\ANONYMOUS LOGON
+Computer:            DC1
+Description:
+Internal event: Finished removing deleted objects that have expired (garbage
+collection). Number of expired deleted objects that have been removed: 229.
+    
+    
+====================================
+> ntdsutil files info
+    
+    
+====================================
+*** Error: Operation only allowed when booted in DS restore mode
+"set SAFEBOOT_OPTION=DSREPAIR" to override - NOT RECOMMENDED!
+    
+    
+====================================
+net stop "active directory domain services"
+    
+    
+====================================
+ntdsutil
+ntdsutil: activate instance "ntds"
+ntdsutil: files
+file maintenance: info
+file maintenance: quit
+ntdsutil: quit
+    
+    
+====================================
+> adfind -default -rb "cn=Deleted Objects" -showdel
+    
+    
+====================================
+Get-SDMADTombstone
+    
+    
+====================================
+adfind -default -f "name=<ObjectRDN>*" -showdel -dsq | admod -undel
+    
+    
+====================================
+> adfind -default -rb "cn=Deleted Objects" -f "(name=<ContainerRDN>*)"
+ -showdel -dsq | admod -undel
+> adfind -default -rb "cn=Deleted Objects" -f
+("lastKnownParent=<ParentContainerDN>") -showdel -dsq | admod -undel
+    
+    
+====================================
+dn: cn=Directory Service,cn=Windows NT,cn=Services,cn=Configuration,<ForestRootDN>
+changetype: modify
+replace: tombstoneLifetime
+tombstoneLifetime: <NumberOfDays>
+-
+    
+    
+====================================
+> ldifde -v -i -f change_tombstone_lifetime.ldf
+    
+    
+====================================
+> admod -b "cn=Directory Service,cn=Windows
+NT,cn=Services,cn=Configuration,<ForestRootDN> tombstoneLifetime::<NumberOfDays>
+    
+    
+====================================
+' This code modifies the default
+' tombstone lifetime.
+' ------ SCRIPT CONFIGURATION ------
+intTombstoneLifetime = <NumberOfDays>
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objDSCont = GetObject("LDAP://cn=Directory Service,cn=Windows NT," & _
+                "cn=Services," & objRootDSE.Get("configurationNamingContext") )
+objDSCont.Put "tombstoneLifetime", intTombstoneLifetime
+objDSCont.SetInfo
+WScript.Echo "Successfully set the
+tombstone lifetime to " & _
+             intTombstoneLifetime
+    
+    
+====================================
+Set-QADObject -Identity LDAP://cn=Directory
+Service,cn=WindowsNT,cn=Services,cn=Configuration,<ForestRootDN>" -ObjectAttributes
+@{tombstoneLifetime=<NumberOfDays>}
+
+$ds = [ADSI] "LDAP://cn=Directory
+Service,cn=WindowsNT,cn=Services,cn=Configuration,<ForestRootDN>"
+$ds.put("tombstoneLifetime", <NumberOfDays>)
+$ds.SetInfo()
+    
+    
+==================

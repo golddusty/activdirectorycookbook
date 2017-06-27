@@ -1,0 +1,781 @@
+chapter: Microsoft Exchange Server 2007 and
+  Exchange Server 2003
+==================
+Get-WmiObject -ComputerName <Exchange_Server> -Class <Exchange_WMI_Class>
+    
+    
+====================================
+C:\WINDOWS\system32\windowspowershell\v1.0\powershell.exe -PSConsoleFile
+"C:\Program Files\Microsoft\Exchange Server\bin\exshell.psc1" -noexit -command ".
+'C:\Program Files\Microsoft\Exchange Server\bin\Exchange.ps1'"
+    
+    
+====================================
+Add-PSSnapin Microsoft.Exchange.Management.PowerShell.Admin
+    
+    
+====================================
+C:\Program Files\Microsoft\Exchange Server\Scripts\
+    
+    
+====================================
+Get-ExCommand | fl Name,Definition >> c:\ExCommandList.txt
+    
+    
+====================================
+Get-ExCommand *mailbox*
+    
+    
+====================================
+<driveletter>:\setup\i386\setup.exe /forestprep
+    
+    
+====================================
+<driveletter>:\setup\i386\setup.exe /domainprep
+    
+    
+====================================
+ServerManagerCmd -I RSAT-ADDS
+    
+    
+====================================
+setup.com /Mode:Install /Roles:Mailbox,HubTransport /TargetDir:"d:\exchange\"
+/EnableLegacyOutlook
+    
+    
+====================================
+ServerManagerCmd -i PowerShell
+ServerManagerCmd -i Web-Server
+ServerManagerCmd -i Web-ISAPI-Ext
+ServerManagerCmd -i Web-Metabase
+ServerManagerCmd -i Web-Lgcy-Mgmt-Console
+ServerManagerCmd -i Web-Basic-Auth
+ServerManagerCmd -i Web-Digest-Auth
+ServerManagerCmd -i Web-Windows-Auth
+ServerManagerCmd -i Web-Dyn-Compression
+ServerManagerCmd -i Web-RPC-Over-HTTP-Proxy
+    
+    
+====================================
+Setup.com /Mode:Install /Roles:Mailbox /AnswerFile:C:\UnattendParams.txt
+    
+    
+====================================
+> <driveletter>:\setup\i386\setup.exe /unattendfile <unattendfile>
+    
+    
+====================================
+> net stop <ServiceName>
+    
+    
+====================================
+> net start <ServiceName>
+    
+    
+====================================
+> net stop <ServiceName> && net start <ServiceName>
+    
+    
+====================================
+'-------------SCRIPT CONFIGURATION----------------------
+strComputer = "<ComputerName>"
+strServiceName = "<ServiceName>"
+
+Set objWMIService = GetObject("winmgmts:" _
+    & "{impersonationLevel=impersonate}!\\" & strComputer _
+    & "\root\cimv2")
+
+Set colServiceList = objWMIService.ExecQuery _
+    ("Select * from Win32_Service where Name='" & strServiceName _
+_ & "'")
+
+' The following code will start a service
+
+For Each objService in colServiceList
+    errReturn = objService.StartService()
+Next
+
+' The following code will stop a service
+
+For Each objService in colServiceList
+    errReturn = objService.StopService()
+Next
+    
+    
+====================================
+Get-service *exchange* | ft Name, Status
+    
+    
+====================================
+Get-WMIObject -class "Win32_Service" -Namespace "root/CIMV2" | Where {$_.Name -like
+"*exchange*"} | ft Name,Status
+    
+    
+====================================
+'-------------SCRIPT CONFIGURATION----------------------
+$strComputer = "."
+Get-WMIObject -class "Win32_Service" -Namespace "root/CIMV2" -ComputerName
+$strComputer | Where-Object {($_.DisplayName -like "*exchange*") -and ($_.StartMode
+-eq "Auto")} | Start-service
+    
+    
+====================================
+Get-service *exchange* | ? { $_.Status -eq "Running" } | stop-service
+    
+    
+====================================
+'-------------SCRIPT CONFIGURATION----------------------
+$strComputer = "."
+
+Get-WMIObject -class "Win32_Service" -Namespace "root/CIMV2" -ComputerName
+$strComputer | Where-Object {($_.DisplayName -like '*exchange*') -and ($_.Started
+-eq $True)} | Stop-service
+    
+    
+====================================
+> exchmbx -b "<User DN>" -me <smtp email address>
+    
+    
+====================================
+> exchmbx -b "cn=joe,cn=users,dc=adatum,dc=com" -me joe@zimbra.adatum.com
+    
+    
+====================================
+dn: <User DN>
+changetype: modify
+replace: targetAddress
+targetaddress: SMTP:<smtp email address>
+-
+replace: mailNickName
+mailNickname: <mail nickname>
+-
+replace: mAPIRecipient
+mAPIRecipient: FALSE
+-
+replace: legacyExchangeDN
+legacyExchangeDN: <legacy exchange DN>
+-
+replace: internetEncoding
+internetEncoding: 1310720
+-
+    
+    
+====================================
+>ldifde -i -f mailenable_user.ldf
+    
+    
+====================================
+' This code mail enables a user.
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>" ' e.g. cn=jsmith,cn=Users,dc=adatum,dc=com
+strEmailAddr = "<EmailAddress>" 'e.g. jsmith@gmx.net
+' ------ END CONFIGURATION ---------
+Set objUser = GetObject("LDAP://" & strUserDN)
+objUser.MailEnable strEmailAddr
+objUser.Put "internetEncoding",1310720
+objUser.SetInfo()
+Wscript.Echo "Successfully mail-enabled user."
+    
+    
+====================================
+>exchmbx -b <UserDN> -me <SmtpEmailAddress> -internetEncoding <Value>
+    
+    
+====================================
+/o=<Org>/ou=<AdministrativeGroup>/cn=<RecipientContainer>/cn=<MailNickName>
+    
+    
+====================================
+/o=CORPMAIL/ou=LASVEGAS/cn=Recipients/cn=OSCARJAMESON
+    
+    
+====================================
+Enable-MailUser -Identity <user_ID_parameter> -Alias <alias_Name> 
+-ExternalEmailAddress <SMTP:proxy_SMTP_Address>
+    
+    
+====================================
+Enable-MailUser -Identity 'adadutm.com/Users/Kieran Lefkovics' -Alias 'Kieran' 
+-ExternalEmailAddress 'SMTP:kieran@gmx.com'
+    
+    
+====================================
+> exchmbx -b "<User DN>" -clear
+    
+    
+====================================
+dn: <UserDN>
+changetype: modify
+replace: altRecipient
+altRecipient:
+-
+replace: authOrig
+authOrig:
+-
+...<SEE DISCUSSION, NOT A COMPLETE LDIF FILE>
+...
+    
+    
+====================================
+> ldifde -i -f clearmailattribs.ldf
+    
+    
+====================================
+' This code mail disables a user.
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>"   ' e.g. cn=jsmith,cn=Users,dc=adatum,dc=com
+' ------ END CONFIGURATION ---------
+set objUser = GetObject("LDAP://" & strUserDN)
+objUser.MailDisableobjUser.SetInfo()
+Wscript.Echo "Successfully mail-disabled user."
+    
+    
+====================================
+Disable-MailUser -Identity <user_ID_parameter>
+    
+    
+====================================
+Disable-MailUser -Identity 'adadutm.com/Users/Kieran Lefkovics'
+    
+    
+====================================
+Disable-MailUser kieran@gmx.com
+    
+    
+====================================
+> exchmbx -b "<UserDN>" -cr "<server>:<storage group>:<mail store>"
+    
+    
+====================================
+> exchmbx -b <UserDN> -cr "<Home MDB URL>"
+    
+    
+====================================
+> exchmbx -b "cn=joe,cn=users,dc=adatum,dc=com" -cr "srv1:sg1:db1"
+    
+    
+====================================
+' This code creates a mailbox for a user.
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>"    ' e.g. cn=jsmith,cn=Users,dc=adatum,dc=com
+strHomeMDB = "<Home MDB DN>"
+' e.g. CN=Mailbox Store (SERVER),CN=First Storage Group,CN=InformationStore,
+' CN=SERVER,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,
+'      CN=ADATUMMAIL,CN=Microsoft Exchange,CN=Services,
+'      CN=Configuration,DC=adatum,DC=com"
+' ------ END CONFIGURATION --------
+set objUser = GetObject("LDAP://" & strUserDN)
+objUser.CreateMailBox strHomeMDB
+objUser.SetInfo()
+Wscript.Echo "Successfully mailbox-enabled user."
+    
+    
+====================================
+Enable-Mailbox -Identity <User_ID_Parameter> -Alias <Name> -Database
+<Storage_Group\Database>
+    
+    
+====================================
+Enable-Mailbox -Identity 'Adatum.com/Users/Alberto Contador' -Alias 'alberto' 
+-Database 'MAIL01MBX\First Storage Group\Mailbox Database'
+    
+    
+====================================
+Get-User -RecipientType User | Enable-Mailbox -Database 'MAIL01MBX\First Storage
+Group\Mailbox Database'
+    
+    
+====================================
+Get-User -OrganizationalUnit "Sales" | Where-Object{$_.RecipientType -eq "User"} |
+Enable-Mailbox -Database "MAIL01MBX\First Storage Group\Mailbox Database"
+    
+    
+====================================
+(objectcategory=msExchPrivateMDB)
+    
+    
+====================================
+' This code mail-disables a user.
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>" ' e.g. cn=jsmith,cn=Users,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+set objUser = GetObject("LDAP://" & strUserDN)
+objUser.DeleteMailbox
+objUser.SetInfo()
+Wscript.Echo "Successfully deleted user's mailbox."
+    
+    
+====================================
+Disable-Mailbox -Identity <User_ID_Parameter>
+    
+    
+====================================
+Disable-Mailbox ray@adatum.com
+    
+    
+====================================
+> exchmbx -b <UserDN> -move "<server>:<storage group>:<mail store>"
+    
+    
+====================================
+> exchmbx -b <UserDN> -move "<Home MDB URL>"
+    
+    
+====================================
+> exchmbx -b "cn=joe,cn=users,dc=adatum,dc=com" -move "srv1:sg1:db1"
+    
+    
+====================================
+' This code moves a mailbox.
+' ------ SCRIPT CONFIGURATION ------
+strUserDN = "<UserDN>" ' e.g. cn=jsmith,cn=Users,dc=adatum,dc=com
+strServer = "<Exchange Server>"           ' e.g. Srv1
+strSGName = "<Storage Group Name>"        ' e.g. SG1
+strMailStoreName = "<MailBox Store Name>" ' e.g. DB1
+' ------ END CONFIGURATION --------
+' Find Storage Group URL and Generate Mailbox Store URL
+strSearch = "cn=" & strSGName & ","
+set objSrv = CreateObject("CDOEXM.ExchangeServer")
+objSrv.DataSource.Open strServer
+for each strSg in objSrv.StorageGroups
+   if (instr(1,strSg,strSearch,1)>0) then
+      strSGUrl = strSg
+      exit for
+   end if
+next
+strMBUrl = "LDAP://cn=" & strMailStoreName & "," & strSGUrl
+
+' Attach to user and move mailbox
+set objUser = GetObject("LDAP://" & strUserDN)
+objUser.MoveMailbox(strMBUrl)
+Wscript.Echo "Successfully moved mailbox."
+    
+    
+====================================
+Move-Mailbox -Identity <User_name> -TargetDatabase <Server\Storage_Group\Database>
+    
+    
+====================================
+Move-Mailbox "Ceriana" -TargetDatabase "MAILMBX01\First Storage Group\Management"
+    
+    
+====================================
+Get-Mailbox | where {$._<User_Property> -eq <Value>} | Move-Mailbox -TargetDatabase 
+<Server\Storage_Group_Database>
+    
+    
+====================================
+$array = "UserA","UserB","UserC","UserD","UserE"
+$array | Move-Mailbox -TargetDatabase <Server\Storage_Group\Database>
+-Confirm:$false
+    
+    
+====================================
+Import-CSV <file_name>.csv | foreach {Move-Mailbox -Identity $_.Username 
+-TargetDatabase <Server\Storage Group\Database> -Confirm:$false}
+    
+    
+====================================
+$array = "UserA","UserB","UserC","UserD","UserE"
+$sc = Read-Host "Enter Source Forest Credentials" -AsSecureString
+$tc = Read-Host "Enter Target Forest Credentials" -AsSecureString
+$array | get-mailbox $mbx -Credential $sc | move-mailbox -TargetDatabase
+<Server\Storage Group\Database> -GlobalCatalog <target_GC> -SourceForestCredential 
+$sc -SourceForestGlobalCatalog <source_GC> -TargetForestCredential $tc -AllowMerge
+-SourceMailboxCleanupOptions deletesourcemailbox
+    
+    
+====================================
+' This code displays all mailboxes and their sizes
+' ------ SCRIPT CONFIGURATION ------
+strComputer = "<Exchange Server>" 'e.g. Svr2
+' ------ END CONFIGURATION ---------
+
+set objWMI = GetObject("winmgmts:\\" & strComputer & _
+                       "\root\MicrosoftExchangeV2")
+set objMbxs = objWMI.ExecQuery("Select * from Exchange_Mailbox",,48)
+for each objMbx in objMbxs
+  Wscript.Echo objMbx.MailBoxDisplayName & " " & objMbx.size & "KB " _
+               & objMbx.TotalItems & " items"
+Next
+Wscript.Echo "Script completed successfully."
+    
+    
+====================================
+Get-MailboxStatistics -Server <Server_name>
+    
+    
+====================================
+Get-MailboxStatistics -Server <Server_name> | Sort-Object TotalItemSize 
+-Descending | ft
+    
+    
+====================================
+$FromAddress = reports@adatum.com
+$ToAddress = administrator@adatum.com
+$MessageSubject = "Daily Mailbox Size Report"
+$MessageBody = "The Daily Mailbox Size Report is attached."
+$SendingServer = "MAILMBX01.adatum.com"
+
+Get-Mailbox | where { $._RecipientType -eq "UserMailbox" } | Get-MailboxStatistics
+| Sort-Object TotalItemSize -Descending | ft
+DisplayName,@{label="TotalItemSize(KB)";expression={$_.TotalItemSize.Value.ToKB()}}
+, ItemCount > c:\mbxreport.txt
+
+$SMTPMessage = New-Object System.Net.Mail.MailMessage $FromAddress, $ToAddress,
+$MessageSubject, $MessageBody
+$Attachment = New-Object Net.Mail.Attachment("c:\mbxreport.txt")
+$SMTPMessage.Attachments.Add($Attachment)
+
+$SMTPClient = New-Object System.Net.Mail.SMTPClient $SendingServer
+$SMTPClient.Send($SMTPMessage)
+    
+    
+====================================
+Get-MailboxStatistics -Identity william | fl
+
+AssociatedItemCount     : 239
+DeletedItemCount        : 20
+DisconnectDate          : 
+DisplayName             : William Lefkovics
+ItemCount               : 4222
+LastLoggedOnUserAccount : ADATUM\william
+LastLogoffTime          : 7/14/2008 3:47:40 AM
+LastLogonTime           : 7/14/2008 3:47:40 AM
+LegacyDN                : /O=ADATUM/OU=EXCHANGE ADMINISTRATIVE GROUP (FYDIBOHF2
+                          3SPDLT)/CN=RECIPIENTS/CN=WILLIAM
+MailboxGuid             : f3774890-ae27-4e00-8464-eeca8e34df81
+ObjectClass             : Mailbox
+StorageLimitStatus      : BelowLimit
+TotalDeletedItemSize    : 1349B
+TotalItemSize           : 3250300B
+Database                : MAILMBX01\First Storage Group\Mailbox Database
+ServerName              : MAILMBX01
+StorageGroupName        : First Storage Group
+DatabaseName            : Mailbox Database
+Identity                : f3774890-ae27-4e00-8464-eeca8e34df81
+IsValid                 : True
+OriginatingServer       : mailmbx01.adatum.com
+    
+    
+====================================
+> adfind -config -rb "cn=<StorageGroup>,cn=InformationStore,cn=<ServerName>,
+cn=Servers,cn=<Administrative Group>,cn=Administrative Groups,cn=<ExchangeOrg>,
+cn=Microsoft Exchange,cn=Services" -dsq | admod mDBStorageQuota::<LimitinKB>
+    
+    
+====================================
+> adfind -config -rb "cn=<StorageGroup>,cn=InformationStore,cn=<ServerName>,
+cn=Servers,cn=<Administrative Group>,cn=AdministrativeGroups,cn=<ExchangeOrg>,
+cn=Microsoft Exchange,cn=Services" -dsq | admod mDBOverQuotaLimit::<LimitinKB>
+    
+    
+====================================
+> adfind -config -rb "cn=<StorageGroup>,cn=InformationStore,cn=<ServerName>,
+cn=Servers,cn=<Administrative Group>,cn=Administrative Groups,cn=<ExchangeOrg>,
+cn=Microsoft Exchange,cn=Services" -dsq | admod mDBOverHardQuotaLimit::<LimitinKB>
+    
+    
+====================================
+> adfind -config -rb "cn=<StorageGroup>,cn=InformationStore,cn=<ServerName>,
+cn=Servers,cn=<Administrative Group>,cn=Administrative Groups,cn=<ExchangeOrg>,
+cn=Microsoft Exchange,cn=Services" -dsq | admod mDBStorageQuota::<LimitinKB>
+mDBOverQuotaLimit::<LimitinKB> mDBOverHardQuotaLimit::<LimitinKB>
+    
+    
+====================================
+' The following script will update the Warning, OverQuota, and
+' HardOverQuota attributes of a mailbox store 
+'-----------SCRIPT CONFIGURATION-----------------------------
+' strLDAPString = "cn=<StorageGroup>,cn=InformationStore," & _
+"cn=<ServerName>,cn=Servers,cn=<AdministrativeGroup>," & _
+"cn=Administrative Groups,cn=<ExchangeOrg>,cn=Microsoft Exchange," & _
+"cn=Services,cn=Configuration,<ForestRootDN>"
+
+strWarningLimit = "<WarningLimitinKB>"
+strSoftQuotaLimit = "<ReceiveOnlyLimitinKB>"
+strHardQuotaLimit = "<NoSendOrReceiveLimitinKB>"
+'-------------------END CONFIGURATION----------------------
+
+Set objMaiboxStore = GetObject _
+    ("LDAP://" & strLDAPString)
+
+objMailboxStore.Put "mdBStorageQuota", strWarningLimit
+objMailboxStore.Put "mdBOverQuotaLimit", strSoftQuotaLimit
+objMailboxStore.Put "mdBOverHardQuotaLimit", strHardQuotaLimit
+
+objMailboxStore.SetInfo
+    
+    
+====================================
+Set-MailboxDatabase <Storage_Group\Database> -IssueWarningQuota:<Value>
+-ProhibitSendQuota:<Value> -ProhibitSendReceiveQuota:<Value>
+    
+    
+====================================
+Set-MailboxDatabase "First Storage Group\Management" -IssueWarningQuota:1800MB 
+-ProhibitSendQuota:1900MB -ProhibitSendReceiveQuota:2000MB
+    
+    
+====================================
+Set-Mailbox <Mailbox_ID_Parameter> -UseDatabaseQuotaDefaults <$true|$False>
+-IssueWarningQuota:<Value> -ProhibitSendQuota:<Value> -
+ProhibitSendReceiveQuota:<Value>
+    
+    
+====================================
+dn: CN=<Address List Name>,<ParentDN>
+changetype: add
+cn: <Address List Name>
+displayName: <Address List Name>
+objectClass: addressBookContainer
+purportedSearch: <LDAP Filter>
+systemFlags: 1610612736
+    
+    
+====================================
+cn=All Address Lists,cn=Address Lists Container,cn=ADATUMMAIL,cn=Microsoft Exchange,
+cn=Services,cn=Configuration,dc=adatum,dc=com
+    
+    
+====================================
+>ldifde -i -f add-al.ldf
+    
+    
+====================================
+' This code creates an Address List.
+' ------ SCRIPT CONFIGURATION ------
+strParentDN  = "<DN to All Address Lists Container>"
+' e.g CN=All Address Lists,CN=Address Lists Container,
+' CN=ADATUMMAIL,CN=Microsoft Exchange,
+' CN=Services,CN=Configuration,DC=adatum,DC=com"
+
+strObjClass = "addressBookContainer"
+strALName = "<Address List Name>"   ' e.g. Sales Dept
+strFilterAttrib = "purportedSearch"
+strFilter = "<LDAP Filter>"   ' e.g. (&(department=sales)(homemdb=*))"
+
+' ------ END CONFIGURATION ---------
+' Set Dynamic values
+set objOU = GetObject("LDAP://" & strParentDN)
+set objNewObj = objOU.Create(strObjClass,"cn=" & strALName)
+objNewObj.Put "displayName",strALName
+objNewObj.Put strFilterAttrib,strFilter
+
+' Set static values
+objNewObj.Put "systemFlags",1610612736
+
+' Save object
+objNewObj.SetInfo
+Wscript.Echo "Successfully created address list."
+    
+    
+====================================
+New-AddressList -Name <AddressList_Name> -Container <AddressListIDParameter> 
+-IncludedRecipients 
+    
+    
+====================================
+New-AddressList -Name 'Regions' -Container '\' -IncludedRecipients 'None'
+    
+    
+====================================
+Update-AddressList -Identity <AddressListIDParameter>
+    
+    
+====================================
+new-AddressList -Name 'Nevada' -IncludedRecipients 'MailboxUsers, MailContacts,
+MailGroups, MailUsers' -ConditionalStateOrProvince 'NV' -Container '\Regions'
+    
+    
+====================================
+Update-AddressList -Identity '\Regions\Nevada'
+    
+    
+====================================
+(&(mailNickname=*)( showinaddressbook=cn=All Users,cn=All Address Lists,cn=Address
+Lists Container,cn=ADATUM,cn=Microsoft Exchange,cn=Services,
+cn=Configuration,dc=adatum,dc=com))
+    
+    
+====================================
+dn: CN=<Storage Group Name>,<ParentDN>
+changetype: add
+objectClass: msExchStorageGroup
+cn: <Storage Group Name>
+showInAdvancedViewOnly: TRUE
+systemFlags: 1610612736
+msExchESEParamEnableIndexChecking: TRUE
+msExchESEParamEnableOnlineDefrag: TRUE
+msExchESEParamSystemPath: <Path to store system files>
+msExchESEParamPageFragment: 8
+msExchESEParamPageTempDBMin: 0
+msExchRecovery: TRUE
+msExchESEParamZeroDatabaseDuringBackup: 0
+msExchESEParamBaseName: E01
+msExchESEParamCircularLog: 0
+msExchESEParamEventSource: MsExchangeIS
+msExchESEParamCheckpointDepthMax: 20971520
+msExchESEParamCommitDefault: 0
+msExchESEParamLogFilePath: <Path to log files>
+msExchESEParamDbExtensionSize: 256
+msExchESEParamLogFileSize: 5120
+    
+    
+====================================
+>ldifde -i -f add-sg.ldf
+    
+    
+====================================
+' This code creates a Storage Group.
+' ------ SCRIPT CONFIGURATION ------
+strServer = "<Exchange Server>"   ' e.g. ExchServer2
+strName = "<Storage Group Name>"  ' e.g. SG1
+strPath = "<File Path>" & strName ' e.g. D:\Program Files\ExchSrvr
+' ------ END CONFIGURATION ---------
+
+' Create URL to Storage Group
+Set objSrv = CreateObject("CDOEXM.ExchangeServer")
+objSrv.DataSource.Open strServer
+
+' This for loop is a bit of a hack to retrieve the first Storage Group
+' in the collection. VBScript doesn't let you access specific elements
+' of a collection the way Jscript can.
+for each strSg in objSrv.StorageGroups
+   strTemp = strSg
+   exit for
+next
+strTemp = mid(strTemp,instr(2,strTemp,"cn",1))
+strSGUrl = "LDAP://cn=" & strName & "," & strTemp
+
+' Create/configure Storage Group and save it 
+set objSG = CreateObject("CDOEXM.StorageGroup")
+objSG.MoveSystemFiles(strPath)
+objSG.MoveLogFiles(strPath)
+objSG.DataSource.SaveTo strSGUrl
+Wscript.Echo "Successfully created storage group."
+    
+    
+====================================
+New-StorageGroup -Server <Server_Name> -Name <Storage Group Name> -LogFolderPath
+<Log File Path> -SystemFolderPath <System File Path>
+    
+    
+====================================
+New-StorageGroup -Server "mailmbx01" -Name "Canada" -LogFolderPath "c:\program
+files\microsoft\exchange server\mailbox\Canada" -SystemLogFileFolder "c:\program
+files\microsoft\exchange server\mailbox\Canada"
+    
+    
+====================================
+' This code creates a Mailbox Store.
+' ------ SCRIPT CONFIGURATION ------
+strServer = "<Exchange Server>"          ' e.g. ExchServer2
+strSGName = "<Storage Group Name>"       ' e.g. SG1
+strMailStoreName = "<MailBox Store Name>" ' e.g. DB1
+' ------ END CONFIGURATION ---------
+
+' Find Storage Group URL
+strSearch = "CN=" & strSGName & ","
+set objSrv = CreateObject("CDOEXM.ExchangeServer") 
+objSrv.DataSource.Open strServer
+for each strSg in objSrv.StorageGroups
+   if (instr(1,strSg,strSearch,1)>0) then strSGUrl = strSg
+next
+
+' Generate Mailbox Store URL  
+strMBUrl = "LDAP://CN=" & strMailStoreName & "," & strSGUrl
+
+' Create/configure Mailbox Store and save it
+set objMb = CreateObject("CDOEXM.MailBoxStoreDB")
+objMb.DataSource.SaveTo strMBUrl
+
+' Mount DataBase
+objMB.Mount
+Wscript.Echo "Successfully created mailbox store."
+    
+    
+====================================
+New-MailboxDatabase -StorageGroup <Storage Group Name> -Name <Name_ID_Parameter> 
+-EdbFilePath <EDB File Path>
+    
+    
+====================================
+New-MailboxDatabase -StorageGroup "MAILMBX01\Canada" -Name "Ontario" -EdbFilePath
+"C:\program files\microsoft\exchange server\ontario.edb"
+    
+    
+====================================
+Mount-Database -Identity "Ontario"
+    
+    
+====================================
+.\install-AntispamAgents.ps1
+    
+    
+====================================
+Restart-Service MSExchangeTransport
+    
+    
+====================================
+Set-TransportConfig -InternalSMTPServers <IP_Address>
+    
+    
+====================================
+> adfind -config -rb "<cn=ServerName>,cn=Servers,cn=<Administrative Group Name>,
+cn=Administrative Groups,cn=<Exchange Organization>,cn=Microsoft
+Exchange,cn=Services" -dsq | admod messageTrackingEnabled::TRUE
+msExchTrkLogCleaningInterval::<Cleanup Interval in Days>
+    
+    
+====================================
+HKLM\System\CurrentControlSet\Services\MSExchangeSA\Parameters\<ServerName>]
+LogDirectory - REG_SZ:<PathToLoggingDirectory>
+    
+    
+====================================
+' This code enables  
+' Message Tracking for an Exchange Server.
+' ------ SCRIPT CONFIGURATION ------
+strConnectionDN = "<Server Name><ParentDN>"
+strLogPath = "<LogFilePath>" ' e.g. D:\Program Files\ExchangSrvr\Logs
+strCleanupInterval = "<CleanupInterval>" ' From 1 - 99
+                                         ' Set to 0 to retain indefinitely
+
+Const HKEY_LOCAL_MACHINE = &H80000002 ' For configuring the Registry
+strComputer = "<ComputerName>" ' Use "." for the local computer
+strKeyPath = "SYSTEM\CurrentControlSet\Services\" & _
+             "MSExchangeSA\Parameters\<ServerName>"
+strValueName = "LogDirectory"
+strValue = "<PathToLoggingDirectory>"
+' ------ END CONFIGURATION ---------
+
+' First configure the relevant AD attributes
+
+Set objServer = GetObject ("LDAP://" & strConnectionDN)
+
+objServer.Put "messageTrackingEnabled", "TRUE"
+objServer.Put "msExchTrkLogCleaningInterval", strCleanupInterval
+objStorageGroup.SetInfo
+
+' Now configure the relevant Registry key
+
+Set oReg=GetObject("winmgmts:{impersonationLevel=impersonate}!\\" & _
+    strComputer & "\root\default:StdRegProv")
+oReg.SetStringValue HKEY_LOCAL_MACHINE,strKeyPath,strValueName,strValue
+    
+    
+====================================
+Set-TransportServer <Server_Name> -MessageTrackingLogEnabled <$True|$False>
+    
+    
+====================================
+Set-MailboxServer <Server_Name> -MessageTrackingLogEnabled <$True|$False>
+    
+    
+====================================
+Set-TransportServer MAILEXHT01 -MessageTrackingLogEnabled:$True 
+-MessageTrackingLogPath "e:\TrackLog\" -MessageTrackingLogMaxDirectorySize 1GB 
+    
+    
+==================

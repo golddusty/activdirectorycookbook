@@ -1,0 +1,610 @@
+chapter: Application Partitions
+==================
+> ntdsutil
+> ntdsutil: dom man
+> domain management: conn
+> connections: conn to se <DomainControllerName>
+> connections: q
+> domain management: create nc <AppPartitionDN> NULL
+> domain management: q
+> ntdsutil: q
+    
+    
+====================================
+> ntdsutil
+> ntdsutil:dom man
+> domain management: conn
+> connections: conn to se <DomainControllerName>
+> connections: q
+> domain management: delete nc <AppPartitionFQDN>
+> domain management: q
+> ntdsutil: q
+    
+    
+====================================
+(&(objectcategory=crossRef)(systemFlags:1.2.840.113556.1.4.803:=5))
+    
+    
+====================================
+> dsquery * cn=partitions,cn=configuration,<ForestDN> -filter
+"(&(objectcategory=crossRef)(systemFlags:1.2.840.113556.1.4.803:=5))"
+-scope onelevel -attr dnsRoot
+    
+    
+====================================
+> adfind -sc appparts+
+    
+    
+====================================
+' This code displays the application partitions contained in the
+' default forest
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+strBase    =  "<LDAP://cn=Partitions," & _
+              objRootDSE.Get("ConfigurationNamingContext") & ">;"
+strFilter  = "(&(objectcategory=crossRef)" & _
+             "(systemFlags:1.2.840.113556.1.4.803:=5));"
+
+strAttrs = "cn,ncName;"
+strScope = "onelevel"
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+
+objRS.MoveFirst
+while not objRS.EOF
+   Wscript.Echo objRS.Fields("nCName").Value
+   objRS.MoveNext
+wend
+    
+    
+====================================
+Get-QADObject -ldapfilter
+"(&(objectcategory=crossRef)(systemFlags:1.2.840.113556.1.4.803:=5))"
+    
+    
+====================================
+$strFilter = "(&(objectcategory=crossRef)(systemFlags:1.2.840.113556.1.4.803:=5))"
+$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objDomain
+$objSearcher.Filter = $strFilter
+$objSearcher.SearchScope = [System.DirectoryServices.SearchScope]::OneLevel
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+> ntdsutil "dom man" conn "co to se <DomainControllerName>" q "add nc
+replica<AppPartitionDN> <DomainControllerName>" q q
+    
+    
+====================================
+> ntdsutil "dom man" conn "co to se <DomainControllerName>" q "remove nc
+replica <AppPartitionDN> <DomainControllerName>" q q
+    
+    
+====================================
+> adfind -partitions -f "(dnsRoot=<PartitionDNSName>)" -dsq | admod
+msDS-NC-Replica-Locations:+:"cn=ntds settings,
+cn=<DCName>,cn=servers,cn=<SiteName>,cn=sites,cn=configuration,<ForestRootDN>"
+    
+    
+====================================
+' This code adds or removes a replica server for the
+' specified application partition
+' ------ SCRIPT CONFIGURATION -----
+strAppPart = "<AppPartitionFQDN>" ' DNS name of the application partition
+
+' Hostname of server to add as replica for app partition.
+' This needs to match the common name for the DC's server object.
+strServer = "<DomainControllerName>" ' e.g. dc01
+
+' Set to True to add server as new replica or False to remove
+boolAdd = True
+' ------ END CONFIGURATION --------
+
+' Constants taken from ADS_PROPERTY_OPERATION_ENUM
+const ADS_PROPERTY_APPEND = 3
+const ADS_PROPERTY_DELETE = 4
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+
+' ---------------------------------------------------------
+' First find the NTDS Settings object for the server
+' ---------------------------------------------------------
+strBase    = "<LDAP://cn=Sites," & _
+             objRootDSE.Get("ConfigurationNamingContext") & ">;"
+strFilter  = "(&(objectcategory=server)(cn=" & strServer & "));"
+strAttrs   = "cn,distinguishedName;"
+strScope   = "subtree"
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+if objRS.RecordCount <> 1 then
+   WScript.Echo "Did not find a match for server " & strServer
+       WScript.Quit
+
+else
+   objRS.MoveLast
+   strServerDN = "cn=NTDS Settings," & _
+                 objRS.Fields("distinguishedName").Value
+   ' Make sure the NTDS Settings object actually exists
+   set objNTDSDSA = GetObject("LDAP://" & strServerDN)
+   Wscript.Echo "Found server: "
+   WScript.Echo strServerDN
+   Wscript.Echo
+end if
+
+' ------------------------------------------------------------------
+' Now need to find the crossRef object
+' for the application partition
+' ------------------------------------------------------------------
+strBase = "<LDAP://cn=Partitions," & _
+          objRootDSE.Get("ConfigurationNamingContext") & ">;"
+strFilter  = "(&(objectcategory=crossRef)" & _
+             "(dnsRoot=" & strAppPart & "));"
+strAttrs   = "cn,distinguishedName;"
+strScope   = "onelevel"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+if objRS.RecordCount <> 1 then
+   WScript.Echo "Did not find a match for application partition " & _
+                strAppPart
+   WScript.Quit
+else
+   objRS.MoveLast
+   set objAppPart = GetObject("LDAP://" & _
+                    objRS.Fields("distinguishedName").Value )
+   Wscript.Echo "Found app partition: "
+   WScript.Echo objRS.Fields("distinguishedName").Value
+   WScript.Echo
+end if
+
+' -----------------------------------------------
+' Lastly, either add or remove the replica server
+' -----------------------------------------------
+if boolAdd = TRUE then
+   objAppPart.PutEx ADS_PROPERTY_APPEND, "msDS-NC-Replica-Locations", _
+                    Array(strServerDN)
+   objAppPart.SetInfo
+   WScript.Echo "Added server to replica set"
+else
+   objAppPart.PutEx ADS_PROPERTY_DELETE, "msDS-NC-Replica-Locations", _
+                    Array(strServerDN)
+   objAppPart.SetInfo
+   WScript.Echo "Removed server from replica set"
+end if
+    
+    
+====================================
+[Collections.DictionaryEntry] $de = new-object Collections.DictionaryEntry -
+argumentList Append @('cn=NTDS
+Settings,cn=<DCName>,cn=servers,cn=<SiteName>cn=sites,cn=configuration,<ForestRootD
+N>')
+get-QADObject -SearchRoot "cn=partitions,cn=configuration,<ForestRootDN>" -
+SearchFilter "dnsRoot=<PartitionName>" | Set-QADObject -objectAttributes @{msDS-NC-
+Replica-Locations=$de}
+    
+    
+====================================
+[Collections.DictionaryEntry] $de = new-object Collections.DictionaryEntry -
+argumentList Delete @('cn=NTDS
+Settings,cn=<DCName>,cn=servers,cn=<SiteName>cn=sites,cn=configuration,<ForestRootD
+N>')
+get-QADObject -SearchRoot "cn=partitions,cn=configuration,<ForestRootDN>" -
+SearchFilter "dnsRoot=<PartitionName>" | Set-QADObject -objectAttributes @{msDS-NC-
+Replica-Locations=$de}
+    
+    
+====================================
+-objectAttributes @{msDS-NC-Replica-Locations=@('<DN1>',<DN2>')}
+    
+    
+====================================
+> ntdsutil "dom man" conn "co to se <DomainControllerName>" q "list nc
+replicas <AppPartitionDN>" q q
+    
+    
+====================================
+> adfind -partitions -f "(dnsRoot=<PartitionDNSName>)" dnsRoot msDS-NC-
+Replica-Locations
+    
+    
+====================================
+' This code displays the DN of each domain controller's
+' nTDSDSA object that is a replica server for the
+' specified app partition
+' ------ SCRIPT CONFIGURATION ------
+' Fully qualified DNS name of app partition
+strAppPart = "<AppPartitionFQDN>" ' e.g. apps.adatum.com
+' ------ END CONFIGURATION ---------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+strBase    =  "<LDAP://cn=Partitions," & _
+              objRootDSE.Get("ConfigurationNamingContext") & ">;"
+strFilter  = "(&(objectcategory=crossRef)(dnsRoot=" & strAppPart & "));"
+strAttrs   = "
+msDS-NC-Replica-Locations;"
+strScope   = "onelevel"
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+if objRS.RecordCount <> 1 then
+   WScript.Echo "Did not find a match for application partition " & _
+                strAppPart
+   WScript.Quit
+else
+   objRS.MoveLast
+   if objRS.Fields("msDS-NC-Replica-Locations").Properties.Count > 0 then
+      Wscript.Echo "There are no replica servers for app partition " & _
+strAppPart
+   else
+      Wscript.Echo "Replica servers for app partition " & strAppPart & ":"
+      for each strNTDS in objRS.Fields("msDS-NC-Replica-Locations").Value
+         WScript.Echo " " & strNTDS
+      next
+   end if
+end if
+    
+    
+====================================
+$objPart = get-QADObject -SearchRoot
+"cn=partitions,cn=configuration,<ForestRootDN>" -SearchFilter
+"dnsRoot=<PartitionName>"
+$objPart.msDS-NC-Replica-Locations
+    
+    
+====================================
+(&(objectcategory=crossRef)(systemFlags:1.2.840.113556.1.4.803:=5)
+(msDS-NC-Replica-Locations=cn=NTDS Settings,cn=<DomainControllerName>,
+cn=servers,cn=<SiteName>,cn=sites,cn=configuration,<ForestDN>))
+    
+    
+====================================
+> dsquery * "cn=partitions,cn=configuration,<ForestDN>" -scope onelevel -attr
+dnsRoot -filter "(&(objectcategory=crossRef)(systemFlags:1.2.840.113556.1.4.803:=5)
+(msDS-NC-Replica-Locations=cn=NTDS Settings,cn=<DomainControllerName>,
+cn=servers,cn=<SiteName>,cn=sites,cn=configuration,<ForestDN>))"
+    
+    
+====================================
+> adfind -partitions -s onelevel -bit -f
+"(&(objectcategory=crossRef)(systemFlags:AND:=5)(msDS-NC-Replica-Locations=cn=NTDS
+Settings,cn=<DomainControllerName>,cn=servers,cn=<SiteName>,
+cn=sites,cn=configuration,<ForestRootDN>))"
+    
+    
+====================================
+' This code finds the application partitions
+' hosted by the specified server.
+' ------ SCRIPT CONFIGURATION ------
+' Hostname of server to add as replica for app partition.
+' This needs to match the common name for the DC's server object.
+strServer = "<DomainControllerName>" ' e.g. dc01
+' ------ END CONFIGURATION ---------
+
+' ----------------------------------------------------------
+' First need to find the NTDS Settings object for the server
+' ----------------------------------------------------------
+set objRootDSE = GetObject("LDAP://RootDSE")
+strBase    =  "<LDAP://cn=Sites," & _
+              objRootDSE.Get("ConfigurationNamingContext") & ">;"
+strFilter  = "(&(objectcategory=server)(cn=" & strServer & "));"
+strAttrs   = "cn,distinguishedName;"
+strScope   = "subtree"
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+if objRS.RecordCount <> 1 then
+   WScript.Echo "Did not find a match for server " & strServer
+   WScript.Quit
+else
+   objRS.MoveLast
+   strServerDN = "cn=NTDS Settings," & _
+                 objRS.Fields("distinguishedName").Value
+   Wscript.Echo "Found server object: "
+   WScript.Echo strServerDN
+   Wscript.Echo
+end if
+
+' ------------------------------------------------------------------
+' Find the crossRef objects that are hosted by the server
+' ------------------------------------------------------------------
+strBase = "<LDAP://cn=Partitions," & _
+          objRootDSE.Get("ConfigurationNamingContext") & ">;"
+strFilter =  "(&(objectcategory=crossRef)" & _
+             "(msDS-NC-Replica-Locations=" & strServerDN & "));"
+
+strAttrs   = "nCName;"
+strScope   = "onelevel"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+if objRS.RecordCount = 0 then
+   WScript.Echo "Server " & strServer & _
+                          " does not host any
+application partitions"
+   WScript.Quit
+else
+   Wscript.Echo "App partitions
+hosted by server " & strServer & ": "
+   objRS.MoveFirst
+   while not objRS.EOF
+      WScript.Echo " " & objRS.Fields("nCName").Value
+      objRS.MoveNext
+   wend
+end if
+    
+    
+====================================
+get-QADObject -SearchScope 'onelevel' -SearchRoot
+cn=partitions,cn=configuration,<ForestRootDN> -SearchFilter
+"(&(objectcategory=crossRef)(systemFlags:1.2.840.113556.1.4.803:=5)(msDS-NC-
+Replica-Locations=cn=NTDS Settings,
+cn=<DomainControllerName>,cn=servers,cn=<SiteName>,
+cn=sites,cn=configuration,<ForestRootDN>))"
+    
+    
+====================================
+> dcdiag /test:checksdrefdom /test:verifyreplicas /test:crossrefvalidation
+/s:<DomainControllerName>
+    
+    
+====================================
+adfind -config -rb cn=dc1,cn=servers,cn=default-first-site-name,cn=site
+s -f "msds-HasInstantiatedNCs=B:8:00000005:dc=apps,dc=local" -dn
+    
+    
+====================================
+AdFind V01.27.00cpp Joe Richards (joe@joeware.net) November 2005
+
+Using server: dc1.adatum.com:389
+Directory: Windows Server 2003
+Base DN: cn=dc1,cn=servers,cn=default-first-site-name,cn=sites,CN=Configuration,
+DC=adatum,DC=com
+
+dn:CN=NTDS Settings,CN=DC1,CN=Servers,CN=Default-First-Site-Name,CN=Sites,
+CN=Configuration,DC=adatum,DC=com
+
+1 Objects returned
+    
+    
+====================================
+> repadmin /notifyopt <AppPartitionDN> /first:<FirstDelayInSeconds>
+/subs:<NextDelayInSeconds>
+    
+    
+====================================
+> admod -b <AppPartitionCrossRefDN>
+msDS-Replication-Notify-First-DSA-Delay::<FirstDelayInSeconds> msDS-Replication-
+Notify-Subsequent-DSA-Delay::<NextDelayInSeconds>
+    
+    
+====================================
+' This code sets the
+' replication delay for an application partition
+' ------ SCRIPT CONFIGURATION ------
+strAppPartDN = "<AppPartitionDN>" ' e.g. dc=apps,dc=adatum,dc=com
+intFirstDelay = <FirstDelayInSeconds>
+intNextDelay = <NextDelayInSeconds>
+' ------ END CONFIGURATION ---------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+strBase    =  "<LDAP://cn=Partitions," & _
+              objRootDSE.Get("ConfigurationNamingContext") & ">;"
+strFilter  = "(&(objectcategory=crossRef)(nCName=" & strAppPartDN & "));"
+strAttrs   = "cn,distinguishedName;"
+strScope   = "onelevel"
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+
+if objRS.RecordCount <> 1 then
+   WScript.Echo "Did not find a match for " & strAppPartDN
+else
+   objRS.MoveLast
+   set objAppPart = GetObject("LDAP://" & _
+                    objRS.Fields("distinguishedName").Value )
+   objAppPart.Put "msDS-
+Replication-Notify-First-DSA-Delay", intFirstDelay
+   objAppPart.Put "msDS-Replication-Notify-Subsequent-DSA-Delay", intNextDelay
+   objAppPart.SetInfo
+   Wscript.Echo "Modified " & objRS.Fields("distinguishedName").Value
+end if
+    
+    
+====================================
+Set-QADObject -Identity
+cn=<AppPartition>,cn=Partitions,cn=Configuration,<ForestRootDN> -ObjectAttributes
+@{ Replication-Notification-First-DSA-Delay="<FirstDelayInSeconds>";msDS-
+Replication-Notify-Subsequent-DSA-Delay::"<NextDelayInSeconds>"}
+
+$objPart = cn=<AppPartition>,cn=Partitions,cn=Configuration,<ForestRootDN>
+$objPart.put("Replication-Notification-First-DSA-Delay", "<FirstDelayInSeconds>")
+$objPart.put("msDS-Replication-Notify-Subsequent-DSA-Delay",
+"<NextDelayInSeconds>")
+$objPart.SetInfo()
+    
+    
+====================================
+> ntdsutil "dom man" conn "co to se <DomainControllerName>" q "set nc ref domain
+<AppPartitionDN> <DomainDN>" q q
+    
+    
+====================================
+> adfind -partitions -f "(dnsRoot=<PartitionDNSName>)" -dsq | admod
+msDS-SDReferenceDomain::"<DomainDN>"
+    
+    
+====================================
+' This code sets the SD
+' reference domain for the specified app partition
+' ------ SCRIPT CONFIGURATION -----
+' DN of reference domain
+strRefDomainDN = "<DomainDN>"       ' e.g. dc=emea,dc=adatum,dc=com
+' Fully qualified DNS name of app partition
+strAppPart = "<AppPartitionFQDN>"   ' e.g. app.adatum.com
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+strBase = "<LDAP://cn=Partitions," & _
+          objRootDSE.Get("ConfigurationNamingContext") & ">;"
+strFilter  = "(&(objectcategory=crossRef)(dnsRoot=" & _
+             strAppPart & "));"
+strAttrs   = "nCName,
+msDS-SDReferenceDomain,distinguishedName;"
+strScope   = "onelevel"
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+if objRS.RecordCount <> 1 then
+   WScript.Echo "Did not find a match for application partition " & _
+                strAppPart
+   WScript.Quit
+else
+   objRS.MoveLast
+   WScript.Echo "Current Reference Domain: " & _
+                objRS.Fields("msDS-SDReferenceDomain").Value
+   set objCrossRef = GetObject("LDAP://" & _
+                     objRS.Fields("distinguishedName").Value )
+   objCrossRef.Put "msDS-SDReferenceDomain", strRefDomainDN
+   objCrossRef.SetInfo
+   WScript.Echo "New Reference Domain: " & _
+                objCrossRef.Get("msDS-SDReferenceDomain")
+end if
+    
+    
+====================================
+get-QADObject -SearchRoot "cn=partitions,cn=Configuration,<ForestRootDN>" 
+-SearchFilter "dnsRoot=<PartitionName>" | Set-QADObject -objectAttributes 
+@{msDS-SDReferenceDomain=<DomainDN>}
+    
+    
+====================================
+> dsacls <AppPartitionCrossRefDN> /G <UserOrGroup>:RPWP;msDS-NC-Replica-Locations
+> dsacls <AppPartitionCrossRefDN> /G <UserOrGroup>:RPWP;msDS-SDReferenceDomain
+> dsacls <AppPartitionCrossRefDN> /G <UserOrGroup>:RPWP;msDS-Replication-Notify-
+First-DSA-Delay
+> dsacls <AppPartitionCrossRefDN> /G <UserOrGroup>:RPWP;msDS-Replication-Notify-
+Subsequent-DSA-Delay
+    
+    
+====================================
+' This script delegates control over the four key attributes
+' of an app partition to the specified user or group.
+' ------ SCRIPT CONFIGURATION ------
+' Fully qualified DNS name of app partition
+strAppPart = "<AppPartitionFQDN>" ' e.g. apps.adatum.com
+' User or group to delegate control to
+strUser = "<UserOrGroup>" ' e.g. joe@adatum.com or ADATUM\joe
+' ------ END CONFIGURATION ---------
+
+'############################
+' Constants
+'############################
+
+' ADS_ACETYPE_ENUM
+Const ADS_ACETYPE_ACCESS_ALLOWED        = &h0
+Const ADS_ACETYPE_ACCESS_ALLOWED_OBJECT = &h5
+
+' ADS_FLAGTYPE_ENUM
+Const ADS_FLAG_OBJECT_TYPE_PRESENT = &h1
+
+' ADS_RIGHTS_ENUM
+Const ADS_RIGHT_DS_WRITE_PROP = &h20
+Const ADS_RIGHT_DS_READ_PROP  = &h10
+
+' schemaIDGUID values
+Const REPLICA_LOCATIONS           = "{97de9615-b537-46bc-ac0f-10720f3909f3}"
+Const SDREFERENCEDOMAIN           = "{4c51e316-f628-43a5-b06b-ffb695fcb4f3}"
+Const NOTIFY_FIRST_DSA_DELAY      = "{85abd4f4-0a89-4e49-bdec-6f35bb2562ba}"
+Const NOTIFY_SUBSEQUENT_DSA_DELAY = "{d63db385-dd92-4b52-b1d8-0d3ecc0e86b6}"
+
+'############################
+' Find App Partition
+'############################
+
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+strBase = "<LDAP://cn=Partitions," & _
+          objRootDSE.Get("ConfigurationNamingContext") & ">;"
+strFilter  = "(&(objectcategory=crossRef)(dnsRoot=" & _
+             strAppPart & "));"
+strAttrs   = "cn,distinguishedName;"
+strScope   = "onelevel"
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+
+Set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+if objRS.RecordCount <> 1 then
+   WScript.Echo "Did not find a match for " & strAppPart
+else
+   objRS.MoveLast
+   set objAppPart = GetObject("LDAP://" & _
+                    objRS.Fields("distinguishedName").Value )
+end if
+
+'############################
+' Create ACL
+'############################
+
+set objSD = objAppPart.Get("ntSecurityDescriptor")
+set objDACL = objSD.DiscretionaryAcl
+
+' Read/Write Property: msDS-NC-Replica-Locations
+set objACE1 = CreateObject("AccessControlEntry")
+objACE1.Trustee    = strUser
+objACE1.AccessMask = ADS_RIGHT_DS_WRITE_PROP Or ADS_RIGHT_DS_READ_PROP
+objACE1.AceFlags   = 0
+objACE1.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE1.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+objACE1.ObjectType = REPLICA_LOCATIONS '
+
+' Read/Write Property: msDS-SDReferenceDomain
+set objACE2 = CreateObject("AccessControlEntry")
+objACE2.Trustee    = strUser
+objACE2.AccessMask = ADS_RIGHT_DS_WRITE_PROP Or ADS_RIGHT_DS_READ_PROP
+objACE2.AceFlags   = 0
+objACE2.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE2.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+objACE2.ObjectType = SDREFERENCEDOMAIN
+
+' Read/Write Property: msDS-Replication-Notify-First-DSA-Delay
+set objACE3 = CreateObject("AccessControlEntry")
+objACE3.Trustee    = strUser
+objACE3.AccessMask = ADS_RIGHT_DS_WRITE_PROP Or ADS_RIGHT_DS_READ_PROP
+objACE3.AceFlags   = 0
+objACE3.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE3.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+objACE3.ObjectType = NOTIFY_FIRST_DSA_DELAY
+
+' Read/Write Property: msDS-Replication-Notify-Subsequent-DSA-Delay
+set objACE4 = CreateObject("AccessControlEntry")
+objACE4.Trustee    = strUser
+objACE4.AccessMask = ADS_RIGHT_DS_WRITE_PROP Or ADS_RIGHT_DS_READ_PROP
+objACE4.AceFlags   = 0
+objACE4.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE4.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+objACE4.ObjectType = NOTIFY_SUBSEQUENT_DSA_DELAY
+
+objDACL.AddAce objACE1
+objDACL.AddAce objACE2
+
+objDACL.AddAce objACE3
+objDACL.AddAce objACE4
+
+'############################
+' Set ACL
+'############################
+objSD.DiscretionaryAcl = objDACL
+objAppPart.Put "ntSecurityDescriptor", objSD
+objAppPart.SetInfo
+WScript.Echo "Delegated control of " & strAppPart & " to " & strUser
+    
+    
+==================

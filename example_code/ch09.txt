@@ -1,0 +1,1124 @@
+chapter: Group Policy Objects
+==================
+> cscript listallgpos.wsf
+    
+    
+====================================
+> cscript //H:cscript
+    
+    
+====================================
+> listallgpos.wsf [/domain:<DomainDNSName>] [/v]
+
+> dsquery * domainroot -filter (objectcategory=grouppolicycontainer) 
+-attr displayname
+
+> adfind -default -f (objectcategory=grouppolicycontainer) displayname
+    
+    
+====================================
+> gpotool [/domain:<DomainDNSName>] [/verbose]
+    
+    
+====================================
+' This code displays
+' all of the GPOs for a domain.
+' ------ SCRIPT CONFIGURATION ------
+strDomain = "<DomainDNSName>" ' e.g. adatum.com
+' ------ END CONFIGURATION --------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+
+' Create an empty search criteriaset objGPMSearchCriteria =
+objGPM.CreateSearchCriteria
+set objGPOList =
+objGPMDomain.SearchGPOs(objGPMSearchCriteria)
+
+' Print the GPOs
+WScript.Echo "Found " & objGPOList.Count & " GPOs in " & strDomain & ":"
+for each objGPO in objGPOList
+   WScript.Echo "   " & objGPO.DisplayName
+next
+    
+    
+====================================
+get-SDMgpo *
+    
+    
+====================================
+> creategpo.wsf <GPOName> [/domain:<DomainDNSName>]
+    
+    
+====================================
+' This code creates an empty GPO.
+' ------ SCRIPT CONFIGURATION -----
+strGPO = "<GPOName>"          ' e.g. "Sales GPO"
+strDomain = "<DomainDNSName>" ' e.g. "adatum.com"
+' ------ END CONFIGURATION --------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.
+GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+
+' Create the GPO and print the results
+set objGPO = objGPMDomain.CreateGPO()
+WScript.Echo "Successfully created GPO"
+objGPO.DisplayName = strGPO
+WScript.Echo "Set GPO name to " & strGPO
+    
+    
+====================================
+new-SDMgpo -name "Marketing GPO" -domain "adatum.com"
+    
+    
+====================================
+> copygpo.wsf <SourceGPOName> <TargetGPOName>
+    
+    
+====================================
+' This code copies a source GPO to a new GPO.
+' ------ SCRIPT CONFIGURATION ------
+strSourceGPO = "<SourceGPOName>" ' e.g. SalesGPO
+strNewGPO    = "<NewGPOName>"    ' e.g. Marketing GPO
+strDomain    = "<DomainDNSName>" ' e.g. adatum.com
+' ------ END CONFIGURATION ---------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+
+' Find the source GPO
+set objGPMSearchCriteria = objGPM.CreateSearchCriteria
+objGPMSearchCriteria.Add objGPMConstants.SearchPropertyGPODisplayName, _
+                         objGPMConstants.SearchOpEquals, cstr(strSourceGPO)
+set objGPOList = objGPMDomain.
+SearchGPOs(objGPMSearchCriteria)
+if objGPOList.Count = 0 then
+   WScript.Echo "Did not find GPO: " & strGPO
+   WScript.Echo "Exiting."
+   WScript.Quit
+elseif objGPOList.Count > 1 then
+   WScript.Echo "Found more than one matching GPO. Count: " & _
+                objGPOList.Count
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found GPO: " & objGPOList.Item(1).DisplayName
+End if
+
+' Copy from source GPO to target GPO
+set objGPMResult = objGPOList.Item(1).CopyTo(0, objGPMDomain, strNewGPO)
+
+' This will throw an exception if there were any errors
+' during the actual operation.
+on error resume next
+objGPMResult.OverallStatus()
+if objGPMResult.Status.Count > 0 then
+   WScript.Echo "Status message(s): " & objGPMResult.Status.Count
+   for i = 1 to objGPMResult.Status.Count
+      WScript.Echo objGPMResult.Status.Item(i).Message
+   next
+   WScript.Echo vbCrLf
+end if
+
+' Display the results
+if Err.Number <> 0 then
+   WScript.Echo "Error copying GPO."
+   WScript.Echo "Error: " & Err.Description
+else
+   WScript.Echo "Copy successful to " & strNewGPO & "."
+end if
+    
+    
+====================================
+> deletegpo.wsf <GPOName> [/domain:<DomainDNSName>]
+    
+    
+====================================
+' This code deletes the specified GPO.
+' ------ SCRIPT CONFIGURATION ------
+strGPO = "<GPOName>"          ' e.g. "My New GPO"
+strDomain = "<DomainDNSName>" ' e.g. "adatum.com"
+' ------ END CONFIGURATION --------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+
+' Find the GPO
+set objGPMSearchCriteria = objGPM.CreateSearchCriteria
+objGPMSearchCriteria.Add objGPMConstants.SearchPropertyGPODisplayName, _
+                         objGPMConstants.SearchOpEquals, cstr(strGPO)
+set objGPOList =
+objGPMDomain.SearchGPOs(objGPMSearchCriteria)
+if objGPOList.Count = 0 then
+   WScript.Echo "Did not find GPO: " & strGPO
+   WScript.Echo "Exiting."
+   WScript.Quit
+elseif objGPOList.Count > 1 then
+   WScript.Echo "Found more than one matching GPO. Count: " & _
+                objGPOList.Count
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found GPO: " & objGPOList.Item(1).DisplayName
+end if
+' Delete the GPO
+objGPOList.Item(1).Delete
+WScript.Echo "Successfully deleted GPO: " & strGPO
+    
+    
+====================================
+remove-SDMgpo -Name "<GPO Friendly Name>"
+    
+    
+====================================
+> getreportsforgpo.wsf "<GPOName>" <ReportLocation> [/domain:<DomainDNSName>]
+    
+    
+====================================
+' This code generates a HTML report of all the properties
+' and settings for a GPO.
+' ------ SCRIPT CONFIGURATION ------
+strGPO        = "<GPOName>"         ' e.g. Sales GPO
+strDomain     = "<DomainDNSName>"   ' e.g. adatum.com
+strReportFile = "<FileNameAndPath>" ' e.g. c:\gpo_report.html
+' ------ END CONFIGURATION --------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+
+set objGPMSearchCriteria = objGPM.CreateSearchCriteria
+objGPMSearchCriteria.Add objGPMConstants.SearchPropertyGPODisplayName, _
+                         objGPMConstants.SearchOpEquals, cstr(strGPO)
+set objGPOList = objGPMDomain.SearchGPOs(objGPMSearchCriteria)
+
+if objGPOList.Count = 0 then
+   WScript.Echo "Did not find GPO: " & strGPO
+   WScript.Echo "Exiting."
+   WScript.Quit
+elseif objGPOList.Count > 1 then
+   WScript.Echo "Found more than one matching GPO. Count: " & _
+                 objGPOList.Count
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found GPO: " & objGPOList.Item(1).DisplayName
+end if
+
+set objGPMResult = objGPOList.Item(1).GenerateReportToFile( _
+                          objGPMConstants.ReportHTML, _
+                                        strReportFile)
+
+' This will throw an exception if there were any errors
+' during the actual operation.
+on error resume next
+objGPMResult.OverallStatus()
+
+if objGPMResult.Status.Count > 0 then
+   WScript.Echo "Status message(s): " & objGPMResult.Status.Count
+   for i = 1 to objGPMResult.Status.Count
+      WScript.Echo objGPMResult.Status.Item(i).Message
+   next
+   WScript.Echo vbCrLf
+end if
+' Display the result
+if Err.Number <> 0 then
+   WScript.Echo "Error generating report."
+   WScript.Echo "Error: " & Err.Description
+else
+   WScript.Echo "Reported saved to " & strReportFile
+end if
+    
+    
+====================================
+out-SDMgpsettingsreport -Name <GPO Friendly Name> -FileName <File Name> -ReportHTML
+    
+    
+====================================
+> importgpo.wsf "<GPOBackupLocation>" "<OrigGPOName>" "<NewGPOName>"
+    
+    
+====================================
+' This code imports the settings from a GPO that has been backed up into
+' an existing GPO.
+' ------ SCRIPT CONFIGURATION ------
+strGPOImportTo    = "<GPOName>"        ' e.g. "Sales GPO"
+strDomain         = "<DomainDNSName>"  ' e.g. "adatum.com"
+strBackupLocation = "<BackupLocation>" ' e.g. "c:\GPMC Backups"
+
+' GUID representing the specific backup
+' e.g.{3E53B39B-C29B-44FF-857B-8A84528804FF}
+strBackupID       = "<BackupGUID>"
+' ------ END CONFIGURATION --------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+
+' Locate GPO backup
+set objGPMBackupDir = objGPM.GetBackupDir(strBackupLocation)
+set objGPMBackup = objGPMBackupDir.GetBackup(strBackupID)
+WScript.Echo "Backup found:"
+WScript.Echo " ID: " & objGPMBackup.ID
+WScript.Echo " Timestamp: " & objGPMBackup.TimeStamp
+WScript.Echo " GPO ID: " & objGPMBackup.GPOID
+WScript.Echo " GPO Name: " & objGPMBackup.GPODisplayName
+WScript.Echo " Comment: " & objGPMBackup.Comment
+WScript.Echo
+
+' Find GPO to import into
+set objGPMSearchCriteria = objGPM.CreateSearchCriteria
+objGPMSearchCriteria.Add objGPMConstants.SearchPropertyGPODisplayName, _
+                         objGPMConstants.SearchOpEquals, cstr(strGPOImportTo)
+set objGPOList =
+objGPMDomain.SearchGPOs(objGPMSearchCriteria)
+if objGPOList.Count = 0 then
+   WScript.Echo "Did not find GPO: " & strGPO
+   WScript.Echo "Exiting."
+   WScript.Quit
+elseif objGPOList.Count > 1 then
+   WScript.Echo "Found more than one matching GPO. Count: " & _
+                objGPOList.Count
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found GPO: " & objGPOList.Item(1).DisplayName
+end if
+
+' Perform the import
+set objGPMResult = objGPOList.Item(1).Import(0,objGPMBackup)
+
+' This will throw an exception if there were any errors
+' during the actual operation.
+on error resume next
+objGPMResult.OverallStatus()
+
+if objGPMResult.Status.Count > 0 then
+   WScript.Echo "Status message(s): " & objGPMResult.Status.Count
+   for i = 1 to objGPMResult.Status.Count
+      WScript.Echo objGPMResult.Status.Item(i).Message
+   next
+   WScript.Echo vbCrLf
+end if
+
+' Print results
+if Err.Number <> 0 then
+   WScript.Echo "Error importing GPO " & objGPMBackup.GPODisplayName
+   WScript.Echo "Error: " & Err.Description
+else
+   WScript.Echo "Import successful."
+   WScript.Echo "GPO '" & objGPMBackup.GPODisplayName & _
+                "' has been imported into GPO '" & _
+                objGPOList.Item(1).DisplayName & "'"
+end if
+    
+    
+====================================
+Import-SDMGPO -ID <GUID of GPO Backup> -Name <Friendly Name of Target GPO>
+    
+    
+====================================
+> createmigrationtable.wsf <DestinationFileName> /GPO:<DestinationGPO> /MapByName
+    
+    
+====================================
+Class Machine
+
+Category !!AdministrativeServices
+
+Category !!DNSClient
+
+Policy !!DisableDynamicUpdate
+Keyname "System\CurrentControlSet\Services\Tcpip\Parameters"
+Explain !!DisableDynamicUpdate_Help
+Valuename "DisableDynamicUpdate"
+End Policy
+
+End Category ;;DNS Client
+
+End Category ;;AdministrativeServices
+
+[strings]
+AdministrativeServices="System"
+DNSClient="DNS Client"
+DisableDynamicUpdate="Disable Dynamic Update"
+DisableDynamicUpdate_Help="Stops the client from dynamically registering all
+adapters
+with DNS.\n\nWhen this setting is enabled it changes the DisableDynamicUpdate value
+to 1 in
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\n\nWhen
+this setting is disabled, the value is set back to its default of zero. Note that
+when the policy is disabled, the registry value may be deleted from the
+registry.\n\
+nSee Q246804 for more details."
+
+;End of Strings
+    
+    
+====================================
+<?xml version="1.0" encoding="utf-8"?> <policyDefinitions
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0"
+  schemaVersion="1.0"
+xmlns="http://www.microsoft.com/GroupPolicy/PolicyDefinitions">
+  <policyNamespaces>
+    <target prefix="search" namespace="Microsoft.Policies.search" />
+    <using prefix="inetres" namespace="Microsoft.Policies.InternetExplorer" />
+  </policyNamespaces>
+  <resources minRequiredRevision="1.0" />
+  <policies>
+    <policy name="PopulateSearchProviderList_1" class="User"
+      displayName="$(string.PopulateSearchProviderList)"
+      explainText="$(string.IE_Explain_PopulateSearchProviderList)"
+      key="Software\Policies\Microsoft\Internet Explorer\SearchScopes">
+      <parentCategory ref="inetres:InternetExplorer" />
+      <supportedOn ref="inetres:SUPPORTED_IE7Vista"/>
+      <enabledList>
+        <item key="Software\Policies\Microsoft\Internet Explorer\SearchScopes"
+          valueName="Version">
+          <value>
+            <decimal value="VERSION" />
+          </value>
+        </item>
+        <item key="Software\Policies\Microsoft\Internet
+          Explorer\SearchScopes\SUBKEY1" valueName="DisplayName">
+          <value>
+            <string>NAME1</string>
+          </value>
+        </item>
+        <item key=" Software\Policies\Microsoft\Internet
+          Explorer\SearchScopes\SUBKEY1" valueName="URL">
+          <value>
+            <string>URL1</string>
+          </value>
+        </item>
+      </enabledList>
+    </policy>
+    <policy name="PopulateSearchProviderList_2" class="Machine"
+      displayName="$(string.PopulateSearchProviderList)"
+      explainText="$(string.IE_Explain_PopulateSearchProviderList)"
+      key="Software\Policies\Microsoft\Internet Explorer\SearchScopes">
+      <parentCategory ref="inetres:InternetExplorer" />
+      <enabledList> Insert same as user policy above </enabledList>
+    </policy>
+  </policies>
+</policyDefinitions>
+    
+    
+====================================
+<?xml version="1.0" encoding="utf-8"?>
+  <policyDefinitionResources xmlns:xsd=http://www.w3.org/2001/XMLSchema
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0"
+schemaVersion="1.0"
+    xmlns="http://www.microsoft.com/GroupPolicy/PolicyDefinitions">
+    <displayName>enter display name here</displayName>
+    <description>enter description here</description>
+    <resources>
+      <stringTable>
+        <string id="PopulateSearchProviderList">Populate List of search
+providers</string>
+        <string id="IE_Explain_PopulateSearchProviderList">
+This policy setting will allow you to populate a list of search providers 
+that will be displayed in Internet Explorer's search box. If you enable 
+this policy setting and if the "Restrict search providers to a specific list of search 
+providers" Group Policy setting is enabled, this list will be the only list that 
+appears in the Internet Explorer drop-down list. If the "Add a specific list of 
+search providers to the user's search provider list" Group Policy setting is enabled, 
+this list will be added to the user's list of search providers. If you disable
+this policy setting or do not configure it, users will have complete
+freedom
+          to create their own search provider list.</string>
+      </stringTable>
+    </resources>
+  </policyDefinitionResources>
+    
+    
+====================================
+' This code can enable or disable the user or computer settings of a GPO.
+' ------ SCRIPT CONFIGURATION ------
+strGPO    = "<GPOName>"       ' e.g. "Sales GPO"
+strDomain = "<DomainDNSName>" ' e.g. "adatum.com"
+boolUserEnable = False
+boolCompEnable = True
+' ------ END CONFIGURATION --------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+
+' Find the specified GPO
+set objGPMSearchCriteria = objGPM.CreateSearchCriteria
+objGPMSearchCriteria.Add objGPMConstants.SearchPropertyGPODisplayName, _
+                         objGPMConstants.SearchOpEquals, cstr(strGPO)
+set objGPOList =
+objGPMDomain.SearchGPOs(objGPMSearchCriteria)
+if objGPOList.Count = 0 then
+   WScript.Echo "Did not find GPO: " & strGPO
+   WScript.Echo "Exiting."
+   WScript.Quit
+elseif objGPOList.Count > 1 then
+   WScript.Echo "Found more than one matching GPO. Count: " & _
+                objGPOList.Count
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found GPO: " & objGPOList.Item(1).DisplayName
+end if
+
+' You can comment out either of these if you don't want to set one:
+
+objGPOList.Item(1).
+SetUserEnabled boolUserEnable
+WScript.Echo "User settings: " & boolUserEnable
+
+objGPOList.Item(1).
+SetComputerEnabled boolCompEnable
+WScript.Echo "Computer settings: " & boolCompEnable
+    
+    
+====================================
+$gpm = New-Object -ComObject GPMgmt.GPM
+$gpmConstants = $gpm.GetConstants()
+$objDomain = $gpm.GetDomain("<Domain FQDN>", "", $gpmConstants.UseAnyDC)
+$objGpo = $objDomain.GetGPO("{<GPO GUID>}")
+$objGpo.SetComputerEnabled($true)
+$objGpo.SetUserEnabled($false)
+    
+    
+====================================
+> dumpgpoinfo.wsf "<GPOName>"
+    
+    
+====================================
+' This code lists all the sites, OUs, and domains a GPO is linked to.
+' ------ SCRIPT CONFIGURATION ------
+strGPO    = "<GPOName>"       ' e.g. "SalesGPO"
+strForest = "<ForestName>"    ' e.g. "adatum.com"
+strDomain = "<DomainDNSName>" ' e.g. "adatum.com"
+' ------ END CONFIGURATION ---------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+' Initialize the Sites Container object
+set objGPMSitesContainer = objGPM.GetSitesContainer(strForest, _
+                           strDomain, "", objGPMConstants.UseAnyDC)
+' Find the specified GPO
+set objGPMSearchCriteria = objGPM.CreateSearchCriteria
+objGPMSearchCriteria.Add objGPMConstants.SearchPropertyGPODisplayName, _
+                         objGPMConstants.SearchOpEquals, cstr(strGPO)
+set objGPOList =
+objGPMDomain.SearchGPOs(objGPMSearchCriteria)
+if objGPOList.Count = 0 then
+   WScript.Echo "Did not find GPO: " & strGPO
+   WScript.Echo "Exiting."
+   WScript.Quit
+elseif objGPOList.Count > 1 then
+   WScript.Echo "Found more than one matching GPO. Count: " & _
+                objGPOList.Count
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found GPO: " & objGPOList.Item(1).DisplayName
+end if
+
+' Search for all SOM links for this GPO
+set objGPMSearchCriteria = objGPM.CreateSearchCriteria
+objGPMSearchCriteria.Add objGPMConstants.SearchPropertySOMLinks, _
+                         objGPMConstants.SearchOpContains, objGPOList.Item(1)
+set objSOMList =
+objGPMDomain.SearchSOMs(objGPMSearchCriteria)
+set objSiteLinkList =
+objGPMSitesContainer.SearchSites(objGPMSearchCriteria)
+
+if objSOMList.Count = 0 and objSiteLinkList.Count = 0 Then
+   WScript.Echo "No Site, Domain, or OU links found for this GPO"
+else
+   WScript.Echo "Links:"
+   for each objSOM in objSOMList
+      select case objSOM.Type
+         case objGPMConstants.SOMDomain
+            strSOMType = "Domain"
+         case objGPMConstants.SOMOU
+            strSOMType = "OU"
+      end select
+      ' Print GPO Domain and OU links
+      WScript.Echo " " & objSOM.Name & " (" & strSOMType & ")"
+   next
+
+   ' Print GPO Site Links
+   for each objSiteLink in objSiteLinkList
+      WScript.Echo " " & objSiteLink.Name & " (Site)"
+   next
+end if
+    
+    
+====================================
+Get-SDMGPLink -Name <GPO Friendly Name>
+    
+    
+====================================
+' This code links a GPO to an OU
+' ------ SCRIPT CONFIGURATION ------
+strGPO     = "<GPOName>"           ' e.g. "Sales GPO"
+strDomain  = "<DomainDNSName>"     ' e.g. "adatum.com"
+strOU      = "<OrgUnitDN>"         ' e.g. "ou=Sales,dc=adatum,dc=com"
+intLinkPos = -1 ' set this to the position the GPO evaluated at
+                ' a value of -1 signifies appending it to the end of the list
+' ------ END CONFIGURATION ---------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+
+' Find the specified GPO
+set objGPMSearchCriteria = objGPM.CreateSearchCriteria
+objGPMSearchCriteria.Add objGPMConstants.SearchPropertyGPODisplayName, _
+objGPMConstants.SearchOpEquals, cstr(strGPO)
+set objGPOList = objGPMDomain.SearchGPOs(objGPMSearchCriteria)
+if objGPOList.Count = 0 then
+   WScript.Echo "Did not find GPO: " & strGPO
+   WScript.Echo "Exiting."
+   WScript.Quit
+elseif objGPOList.Count > 1 then
+   WScript.Echo "Found more than one matching GPO. Count: " & _
+                objGPOList.Count
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found GPO: " & objGPOList.Item(1).DisplayName
+end if
+
+' Find the specified OU
+set objSOM = objGPMDomain.
+GetSOM(strOU)
+if IsNull(objSOM) then
+   WScript.Echo "Did not find OU: " & strOU
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found OU: " & objSOM.Name
+end if
+
+on error resume next
+
+set objGPMLink = objSOM.
+CreateGPOLink( intLinkPos, objGPOList.Item(1) )
+
+if Err.Number <> 0 then
+   WScript.Echo "There was an error creating the GPO link."
+   WScript.Echo "Error: " & Err.Description
+else
+   WScript.Echo "Sucessfully linked GPO to OU"
+end if
+    
+    
+====================================
+add-SDMgplink -Name "<GPO Display Name>" -Scope "<Container DN>"
+    
+    
+====================================
+' This code blocks inheritance of GPOs on the specified OU
+' ------ SCRIPT CONFIGURATION ------
+strDomain  = "<DomainDNSName>" ' e.g. "adatum.com"
+strOU     = "<OrgUnitDN>"      ' e.g. "ou=Sales,dc=adatum,dc=com"
+boolBlock = TRUE               ' e.g. set to FALSE
+to not block inheritance
+' ------ END CONFIGURATION --------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+
+' Find the specified OU
+set objSOM = objGPMDomain.GetSOM(strOU)
+if IsNull(objSOM) then
+   WScript.Echo "Did not find OU: " & strOU
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found OU: " & objSOM.Name
+end if
+
+' on error resume next
+
+objSOM.GPOInheritanceBlocked = boolBlock
+
+if Err.Number <> 0 then
+   WScript.Echo "There was an error blocking inheritance."
+   WScript.Echo "Error: " & Err.Description
+else
+   WScript.Echo "Successfully set inheritance blocking on OU to " & boolBlock
+end if
+    
+    
+====================================
+$gpm = New-Object -ComObject GPMgmt.GPM
+$gpmConstants = $gpm.GetConstants()
+$objDomain = $gpm.GetDomain("<Domain FQDN>", "", $gpmConstants.UseAnyDC)
+$objOU = $objDomain.GetSOM("<OU DN>")
+$objOU.GPOInheritanceBlocked = $true
+    
+    
+====================================
+' This code enforces a link to a GPO.
+' ------ SCRIPT CONFIGURATION ------
+strGPO      = "<GPOName>"    ' e.g. SalesGPO
+strForest   = "<ForestName>" ' e.g. adatum.com
+strDomain   = "<DomainName>" ' e.g. adatum.com
+strLinkName = "<LinkName>"   ' e.g. "Finance" for an OU link,
+                                     ' "adatum.com" for a domain,
+                                     ' "Default-First-Site-Link" for a site
+boolEnforced = TRUE                  ' FALSE to disable the enforced setting
+' ------ END CONFIGURATION ---------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+' Initialize the Sites Container object
+set objGPMSitesContainer = objGPM.GetSitesContainer(strForest, _
+                           strDomain, "", objGPMConstants.UseAnyDC)
+' Find the specified GPO
+set objGPMSearchCriteria = objGPM.CreateSearchCriteria
+objGPMSearchCriteria.Add objGPMConstants.SearchPropertyGPODisplayName, _
+                         objGPMConstants.SearchOpEquals, cstr(strGPO)
+set objGPOList =
+objGPMDomain.SearchGPOs(objGPMSearchCriteria)
+if objGPOList.Count = 0 then
+   WScript.Echo "Did not find GPO: " & strGPO
+   WScript.Echo "Exiting."
+   WScript.Quit
+elseif objGPOList.Count > 1 then
+   WScript.Echo "Found more than one matching GPO. Count: " & _
+                objGPOList.Count
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found GPO: " & objGPOList.Item(1).DisplayName
+   strGUID = objGPOList.Item(1).ID
+end if
+' Search for all SOM links for this GPO
+set objGPMSearchCriteria = objGPM.CreateSearchCriteria
+objGPMSearchCriteria.Add objGPMConstants.SearchPropertySOMLinks, _
+                         objGPMConstants.SearchOpContains,
+objGPOList.Item(1)
+set objSOMList = objGPMDomain.SearchSOMs(objGPMSearchCriteria)
+set objSiteLinkList = objGPMSitesContainer.SearchSites(objGPMSearchCriteria)
+
+if objSOMList.Count = 0 and objSiteLinkList.Count = 0 Then
+   WScript.Echo "No Site, Domain, or OU links found for this GPO"
+else
+    for each objSOM in objSOMList
+       if strcomp(objSOM.Name, strLinkName, vbTextCompare) = 0 then
+           set colGPOLinks = objSOM.getGPOLinks()
+           for each objGPOLink in colGPOLinks
+               if strcomp(objGPOLink.GPOID,strGUID,vbTextCompare) = 0 then
+                   objGPOLink.Enforced = boolEnforced
+                   WScript.Echo("Enforced GPO " & strGPO & _
+                                " link to " & strLinkName)
+               end if
+           next
+       end if
+    next
+
+   ' Print GPO Site Links
+   for each objSiteLink in objSiteLinkList
+      if strcomp(objSiteLink.Name, strLinkName, vbTextCompare) = 0 then
+           set colGPOLinks = objSiteLink.getGPOLinks()
+           for each objGPOLink in colGPOLinks
+               if strcomp(objGPOLink.GPOID,strGUID,vbTextCompare) = 0 then
+                   objGPOLink.Enforced = boolEnforced
+                       WScript.Echo("Enforced GPO " & strGPO & _
+                                    " link to " & strLinkName)
+               end if
+           next
+      end if
+   next
+end if
+    
+    
+====================================
+> setgpopermissions.wsf "<GPOName>" "<GroupName>" /permission:Apply
+> setgpopermissions.wsf "<GPOName>" "Authenticated Users" /permission:None
+    
+    
+====================================
+' This code adds a security group filter permission to a GPO
+' and removes the Authenticated Users filter permission.
+' ------ SCRIPT CONFIGURATION ------
+strGPO         = "<GPOName>"       ' e.g. "Sales GPO"
+strDomain      = "<DomainDNSName>" ' e.g. "adatum.com"
+strGroupAdd    = "<GroupName>"     ' e.g. "SalesUsers"
+strGroupRemove = "Authenticated Users"
+' ------ END CONFIGURATION ---------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+
+' Find the specified GPO
+set objGPMSearchCriteria = objGPM.CreateSearchCriteria
+objGPMSearchCriteria.Add objGPMConstants.SearchPropertyGPODisplayName, _
+                         objGPMConstants.SearchOpEquals, cstr(strGPO)
+set objGPOList =
+objGPMDomain.SearchGPOs(objGPMSearchCriteria)
+if objGPOList.Count = 0 then
+   WScript.Echo "Did not find GPO: " & strGPO
+   WScript.Echo "Exiting."
+   WScript.Quit
+elseif objGPOList.Count > 1 then
+   WScript.Echo "Found more than one matching GPO. Count: " & _
+                objGPOList.Count
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found GPO: " & objGPOList.Item(1).DisplayName
+end if
+
+' Get permission objects to Apply GPO
+set objGPMPerm1 = objGPM.CreatePermission(strGroupAdd, _
+                         objGPMConstants.PermGPOApply, False)
+set objGPMPerm2 = objGPM.CreatePermission(strGroupRemove, _
+                         objGPMConstants.PermGPOApply, False)
+
+' Get the existing set of permissions on the GPO
+set objSecurityInfo = objGPOList.Item(1).GetSecurityInfo()
+
+' Add the new permission
+objSecurityInfo.Add objGPMPerm1
+' Remove Authenticate users
+objSecurityInfo.Remove objGPMPerm2
+
+on error resume next
+
+' Apply the permission to the GPO
+objGPOList.Item(1).SetSecurityInfo objSecurityInfo
+if Err.Number <> 0 then
+   WScript.Echo "There was an error setting the
+security filter."
+   WScript.Echo "Error: " & Err.Description
+else
+   WScript.Echo "Added Apply permission for group " & strGroupAdd
+   WScript.Echo "Removed Apply permission for group " & strGroupRemove
+end if
+    
+    
+====================================
+add-SDMgposecurity -Name "<GPO Display Name>" -Trustee "<Domain>\<Username>" -
+PermApply
+    
+    
+====================================
+select * from Win32_OperatingSystem
+where Caption = "Microsoft Windows XP Professional"
+    
+    
+====================================
+' This code links an existing WMI filter with a GPO.
+' ------ SCRIPT CONFIGURATION ------
+strGPO         = "<GPOName>"       ' e.g. "Sales GPO"
+strDomain      = "<DomainDNSName>" ' e.g. "adatum.com"
+
+' e.g. {D715559A-7965-45A6-864D-AEBDD9934415}
+strWMIFilterID = "<WMIFilterID>"
+' ------ END CONFIGURATION --------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+' Find the GPO
+set objGPMSearchCriteria = objGPM.CreateSearchCriteria
+objGPMSearchCriteria.Add objGPMConstants.SearchPropertyGPODisplayName, _
+                         objGPMConstants.SearchOpEquals, _
+                         cstr(strGPO)
+set objGPOList =
+objGPMDomain.SearchGPOs(objGPMSearchCriteria)
+if objGPOList.Count = 0 then
+   WScript.Echo "Did not find GPO: " & strGPO
+   WScript.Echo "Exiting."
+   WScript.Quit
+elseif objGPOList.Count > 1 then
+   WScript.Echo "Found more than one matching GPO. Count: " & _
+                objGPOList.Count
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found GPO: " & objGPOList.Item(1).DisplayName
+end if
+
+on error resume next
+
+' Retrieve the WMI filter
+strWMIFilter = "MSFT_SomFilter.Domain=""" & _
+                strDomain & """,ID=""" & _
+                strWMIFilterID & """"
+set objWMIFilter = objGPMDomain.GetWMIFilter(strWMIFilter)
+if Err.Number <> 0 then
+   WScript.Echo "Did not find WMI Filter: " & strWMIFilterID
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found WMI Filter: " & objWMIFilter.Name
+end if
+
+' Link the filter and print the result
+objGPOList.Item(1).SetWMIFilter(objWMIFilter)
+if Err.Number <> 0 then
+   WScript.Echo "Failed
+to set WMI filter."
+   WScript.Echo "Error: " & err.description
+else
+   WScript.Echo "Set WMI filter successfully."
+end if
+    
+    
+====================================
+add-SDMWMIFilterLink -Name <GPO Friendly Name> -FilterName <WMI Filter Friendly
+Name>
+    
+    
+====================================
+> backupgpo.wsf "<GPOName>" "<BackupFolder>" /comment:"<BackupComment>"
+    
+    
+====================================
+' This code backs up a GPO to the specified backup location.
+' ------ SCRIPT CONFIGURATION ------
+strGPO      = "<GPOName>"       ' e.g. "Default Domain Policy"
+strDomain   = "<DomainDNSName>;"' e.g. "adatum.com"
+strLocation = "<BackupFolder>"  ' e.g. "c:\GPMC Backups"
+strComment  = "<BackupComment>" ' e.g. "Default Domain Policy Weekly"
+' ------ END CONFIGURATION ---------
+
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+
+' Find the GPO you want to back up
+set objGPMSearchCriteria = objGPM.CreateSearchCriteria
+objGPMSearchCriteria.Add objGPMConstants.SearchPropertyGPODisplayName, _
+                         objGPMConstants.SearchOpEquals, cstr(strGPO)
+set objGPOList =
+objGPMDomain.SearchGPOs(objGPMSearchCriteria)
+if objGPOList.Count = 0 then
+   WScript.Echo "Did not find GPO: " & strGPO
+   WScript.Echo "Exiting."
+   WScript.Quit
+elseif objGPOList.Count > 1 then
+   WScript.Echo "Found more than one matching GPO. Count: " & _
+                objGPOList.Count
+   WScript.Echo "Exiting."
+   WScript.Quit
+else
+   WScript.Echo "Found GPO: " & objGPOList.Item(1).DisplayName
+End if
+
+' Kick off the backup
+On Error Resume Next
+set objGPMResult = objGPOList.Item(1).Backup(strLocation, strComment)
+' Call the OverallStatus method on the GPMResult.
+' This will throw an exception if there were any
+' errors during the actual operation.
+objGPMResult.OverallStatus()
+if objGPMResult.Status.Count > 0 then
+   WScript.Echo "Status messages:" & objGPMResult.Status.Count
+   for i = 1 to objGPMResult.Status.Count
+   WScript.Echo objGPMResult.Status.Item(i).Message
+   next
+   WScript.Echo vbCrLf
+end if
+
+' Print the results
+if Err.Number <> 0 then
+   WScript.Echo "The backup failed."
+   WScript.Echo "Attempted to backup GPO '" & strGPO & "' to location " &
+strLocation
+   WScript.Echo "Error: " & err.description
+else
+   set objGPMBackup = objGPMResult.Result
+   WScript.Echo "Backup completed successfully."
+   WScript.Echo "GPO ID: " & objGPMBackup.GPOID
+   WScript.Echo "Timestamp: " & objGPMBackup.TimeStamp
+   WScript.Echo "Backup ID: " & objGPMBackup.ID
+end if
+    
+    
+====================================
+export-SDMgpo -Name "<GPO Display Name>" -Location "<Path to Backup Folder>" 
+-Description "<Backup Description>"
+    
+    
+====================================
+> querybackuplocation.wsf "c:\gpmc backups"
+    
+    
+====================================
+> restoregpo.wsf "<BackupFolder>" "<GPOName>"
+    
+    
+====================================
+' This code restores a GPO from a backup.
+' ------ SCRIPT CONFIGURATION ------
+strGPO      = "<GPOName>"       ' e.g. "Sales Users GPO"
+strDomain   = "<DomainDNSName>" ' e.g. "adatum.com"
+strLocation = "<BackupFolder>"  ' e.g. "c:\GPMC Backups"
+strBackupID = "<BackupGUID>"    ' e.g. "{85CA37AC-0DB3-442B-98E8-537291D26ED3}"
+' ------ END CONFIGURATION --------
+set objGPM = CreateObject("GPMgmt.GPM")
+set objGPMConstants = objGPM.GetConstants()
+
+' Initialize the Domain object
+set objGPMDomain = objGPM.GetDomain(strDomain, "", objGPMConstants.UseAnyDC)
+
+' Make sure backup location and ID are valid
+set objGPMBackupDir = objGPM.GetBackupDir(strLocation)
+set objGPMBackup = objGPMBackupDir.GetBackup(strBackupID)
+WScript.Echo "Backup found:"
+WScript.Echo "  ID: " & objGPMBackup.ID
+WScript.Echo "  Timestamp: " & objGPMBackup.TimeStamp
+WScript.Echo "  GPO ID: " & objGPMBackup.GPOID
+WScript.Echo "  GPO Name: " & objGPMBackup.GPODisplayName
+WScript.Echo "  Comment: " & objGPMBackup.Comment
+WScript.Echo
+
+' Perform restore
+set objGPMResult = objGPMDomain.RestoreGPO(objGPMBackup, _
+                                           objGPMConstants.DoNotValidateDC)
+' This will throw an exception if there were any errors
+' during the actual operation.
+on error resume next
+objGPMResult.OverallStatus()
+if objGPMResult.Status.Count > 0 then
+   WScript.Echo "Status message(s): " & objGPMResult.Status.Count
+   for i = 1 to objGPMResult.Status.Count
+      WScript.Echo objGPMResult.Status.Item(i).Message
+   next
+   WScript.Echo vbCrLf
+end if
+
+' Print result
+if Err.Number <> 0 then
+   WScript.Echo "Error restoring GPO " & objGPMBackup.GPODisplayName
+   WScript.Echo "Error: " & Err.Description
+else
+   WScript.Echo "Restore successful."
+   WScript.Echo "GPO '" & objGPMBackup.GPODisplayName & _
+                "' has been restored."
+end if
+    
+    
+====================================
+import-SDMgpo -Name "<GPO Display Name>" -Backup Location "<Backup Location>"
+    
+    
+====================================
+> gpresult
+    
+    
+====================================
+HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Group Policy\History
+    
+    
+====================================
+> gpupdate [/target:{Computer | User}]
+    
+    
+====================================
+> secedit /refreshpolicy [machine_policy | user_policy]
+    
+    
+====================================
+update-SDMgp -Target "<Machine FQDN>"
+    
+    
+====================================
+> dcgpofix /target:Both
+    
+    
+====================================
+C:> psomgr -add
+20CharNoExpiry:20CharactersNoExpiration:1:0:20:50:30:60:2:TRUE:FALSE -forreal
+    
+    
+====================================
+New-QADPasswordSettingsObject -Name '45DayExpiry' -Precedence 10 
+-MaximumPasswordAge (new-timespan -days 45 -hour 0 -minute 0) 
+-PasswordComplexityEnabled 'true'
+    
+    
+====================================
+psomgr -rename newname -pso oldname -forreal
+    
+    
+====================================
+psomgr -mod -pso TestPSO -pwdlen 60 -forreal
+    
+    
+====================================
+psomgr -applyto CN=Marketing,CN=Users,DC=ADATUM,DC=COM -pso TestPSO -forreal
+    
+    
+====================================
+psomgr -unapplyto CN=Marketing,CN=Users,DC=ADATUM,DC=COM -pso TestPSO -forreal
+    
+    
+====================================
+rename-QADObject -Identity <PSO DN> -NewName <New PSO CN>
+    
+    
+====================================
+$objPSO = [System.DirectoryServices.DirectoryEntry] "LDAP://<PSO DN>"
+$newName = "<New Value of 'name' Attribute>"
+$objPSO.psbase.Rename($newName)
+    
+    
+====================================
+Add-QADPasswordSettingsObjectAppliesTo -Identity <PSO DN> -AppliesTo <Group DN>
+    
+    
+====================================
+Remove-QADPasswordSettingsObjectAppliesTo -Identity <PSO DN> -AppliesTo <Group DN>
+    
+    
+====================================
+psomgr.exe -effective <User DN>
+    
+    
+====================================
+get-QADUser -Identity <UserDN> -IncludedProperties msDS-ResultantPSO | format-list
+dn,msDS-ResultantPSO
+    
+    
+==================

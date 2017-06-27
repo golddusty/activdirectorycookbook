@@ -1,0 +1,680 @@
+chapter: Logging, Monitoring, and Quotas
+==================
+> reg add HKLM\Software\Microsoft\Windows\CurrentVersion\AdminDebug\dcpromoui /v
+"LogFlags" /t REG_DWORD /d <FlagValue>
+    
+    
+====================================
+' This code sets the dcpromoui logging flag (for Windows Server 2003 only).
+' ------ SCRIPT CONFIGURATION ------
+strDC = "<DomainControllerName>" ' e.g. dc01
+intFlag = <FlagValue>            ' Flag value in decimal, e.g. 16711683
+' ------ END CONFIGURATION --------
+
+const HKLM = &H80000002
+strDcpromoReg =
+"Software\Microsoft\Windows\CurrentVersion\AdminDebug\dcpromoui\LogFlags"
+set objReg = GetObject("winmgmts:\\" & strDC & "\root\default:StdRegProv")
+objReg.SetDwordValue HKLM, strDcpromoReg, "LogFlags", intFlag
+WScript.Echo "Dcpromoui flag set to " & intFlag
+    
+    
+====================================
+$strRegPath =
+"HKLM:\Software\Microsoft\Windows\CurrentVersion\AdminDebug\dcpromoui\LogFlags"
+New-ItemProperty -path $strRegPath -name "LogFiles" -type DWORD
+Set-ItemProperty -path $strRegPath -name "LogFiles" -value "<FlagValue>"
+    
+    
+====================================
+HKLM\Software\Microsoft\Windows\CurrentVersion\AdminDebug\dcpromoui
+    
+    
+====================================
+HKLM\Software\Microsoft\Windows\CurrentVersion\AdminDebug\dcpromoui\LogFlags
+    
+    
+====================================
+> reg add HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Diagnostics /v
+"<LoggingSetting>" /t REG_DWORD /d <0-5>
+    
+    
+====================================
+' This code sets the specified
+' diagnostics logging level.
+' ------ SCRIPT CONFIGURATION ------
+strDC = "<DomainControllerName>"   ' e.g. dc01
+strLogSetting = "<LoggingSetting>" ' e.g. 1 Knowledge Consistency Checker
+intFlag = <FlagValue>              ' Flag value in decimal, e.g. 5
+' ------ END CONFIGURATION ---------
+
+const HKLM = &H80000002
+strRegKey = "SYSTEM\CurrentControlSet\Services\NTDS\
+Diagnostics"
+set objReg = GetObject("winmgmts:\\" & strDC & "\root\default:StdRegProv")
+objReg.SetDwordValue HKLM, strRegKey, "LogFlags", intFlag
+WScript.Echo "
+Diagnostics logging for " & strLogSetting _
+             & " set to " & intFlag
+    
+    
+====================================
+$strRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Diagnostics"
+Set-ItemProperty -path $strRegPath -name "<LoggingSetting>" -value "<FlagValue>"
+    
+    
+====================================
+1 Knowledge Consistency Checker
+2 Security Events
+3 ExDS Interface Events
+4 MAPI Interface Events
+5 Replication Events
+6 Garbage Collection
+7 Internal Configuration
+8 Directory Access
+9 Internal Processing
+10 Performance Counters
+11 Initialization/Termination
+12 Service Control
+13 Name Resolution
+14 Backup
+15 Field Engineering
+16 LDAP Interface Events
+17 Setup
+18 Global Catalog
+19 Inter-site Messaging
+20 Group Caching
+21 Linked-Value Replication
+22 DS RPC Client
+23 DS RPC Server
+24 DS Schema
+    
+    
+====================================
+> nltest /dbflag:0x2080ffff
+    
+    
+====================================
+> nltest /dbflag:0x0
+    
+    
+====================================
+HKLM\System\CurrentControlSet\Services\Netlogon Parameters\DBFlag
+    
+    
+====================================
+> reg add "<Key Value>" /v "<Value Name>" /t REG_DWORD /d <Value>
+    
+    
+====================================
+' This code enables
+' GPO logging on a target computer.
+' ------ SCRIPT CONFIGURATION ------
+strComputer = "<ComputerName>" ' e.g. rallen-w2k3
+strRegKey = "<Key Name>"
+strValueName = "<Value Name>"
+strValue = "<Value>"
+' ------ END CONFIGURATION ---------
+
+const HKLM = &H80000002
+strRegKey = "SOFTWARE\Microsoft\Windows NT\CurrentVersion\Diagnostics"
+set objReg = GetObject("winmgmts:\\" & strComputer _
+                       & "\root\default:StdRegProv")
+objReg.SetDwordValue HKLM, strRegKey, strValueName, strValue
+WScript.Echo "Enabled
+GPO logging for " & strComputer
+    
+    
+====================================
+> reg add HKLM\SYSTEM\CurrentControlSet\Control\Lsa\Kerberos\Parameters /v
+"LogLevel" /t REG_DWORD /d 1
+    
+    
+====================================
+' This code enables Kerberos logging for the specified domain controller.
+' ------ SCRIPT CONFIGURATION ------
+strDC = "<DomainControllerName>" ' e.g. dc01
+' ------ END CONFIGURATION ---------
+
+const HKLM = &H80000002
+strRegKey = "SYSTEM\CurrentControlSet\Control\Lsa\Kerberos\Parameters"
+set objReg = GetObject("winmgmts:\\" & strDC & "\root\default:StdRegProv")
+objReg.SetDwordValue HKLM, strRegKey, "LogLevel", 1
+WScript.Echo "Enable Kerberos logging for " & strDC
+    
+    
+====================================
+$strRegPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\Kerberos\Parameters"
+New-ItemProperty -path $strRegPath -name "LogLevel" -type DWORD
+Set-ItemProperty -path $strRegPath -name "LogLevel" -value "1"
+    
+    
+====================================
+Event Type:       Error
+Event Source:     Kerberos
+Event Category:   None
+Event ID:         3
+Date:             5/26/2003
+Time:             5:53:43 PM
+User:             N/A
+Computer:         DC01
+Description:
+A Kerberos Error Message was received:
+         on logon session
+ Client Time:
+ Server Time: 0:53:43.0000 5/27/2003 Z
+ Error Code: 0xd KDC_ERR_BADOPTION
+ Extended Error: 0xc00000bb KLIN(0)
+ Client Realm:
+ Client Name:
+ Server Realm: ADATUM.COM
+ Server Name: host/dc01.adatum.com
+ Target Name: host/dc01.adatum.com@ADATUM.COM
+ Error Text:
+ File: 9
+ Line: ab8
+ Error Data is in record data.
+    
+    
+====================================
+> dnscmd <DNSServerName> /statistics
+    
+    
+====================================
+' This code displays all statistics for the specified DNS server.
+' ------ SCRIPT CONFIGURATION ------
+strServer = "<DNSServerName>" ' e.g. dc1.adatum.com
+' ------ END CONFIGURATION ---------
+
+set objDNS = GetObject("winmgmts:\\" & strServer & "\root\MicrosoftDNS")
+set objDNSServer = objDNS.Get("MicrosoftDNS_Server.Name="".""")
+set objStats = objDNS.ExecQuery("Select * from MicrosoftDNS_Statistic ")
+for each objStat in objStats
+   WScript.Echo " " & objStat.Name & " : " & objStat.Value
+next
+    
+    
+====================================
+get-eventlog | where-object { $_.logDisplayName = "DNS Server"}
+    
+    
+====================================
+> dnscmd /statistics /?
+    
+    
+====================================
+> dnscmd /statistics 6
+DNS Server . statistics:
+
+Queries and Responses:
+----------------------
+Total:
+    Queries Received =   14902
+    Responses Sent   =   12900
+UDP:
+    Queries Recvd    =   14718
+    Responses Sent   =   12716
+    Queries Sent     =   23762
+    Responses Recvd  =       0
+TCP:
+    Client Connects  =     184
+    Queries Recvd    =     184
+    Responses Sent   =     184
+    Queries Sent     =       0
+    Responses Recvd  =       0
+
+Queries:
+--------
+Total         =   14902
+    Notify    =       0
+    Update    =    2207
+    TKeyNego  =     184
+    Standard  =   12511
+       A      =    1286
+       NS     =      29
+       SOA    =    2263
+       MX     =       0
+       PTR    =       1
+       SRV    =    8909
+       ALL    =       0
+       IXFR   =       0
+       AXFR   =       0
+       OTHER  =      23
+
+Command completed successfully.
+    
+    
+====================================
+select * from MicrosoftDNS_Statistic where Name like 'Records%'
+    
+    
+====================================
+> ntfrsutl poll dc1.adatum.com
+    
+    
+====================================
+> ntfrsutl sets dc1.adatum.com
+    
+    
+====================================
+> w32tm /monitor /computers:dc1.adatum.com,dc2.adatum.com
+    
+    
+====================================
+Event Type:        Information
+Event Source:      NTDS General
+Event Category:    Field Engineering
+Event ID:          1643
+Date:              5/24/2003
+Time:              7:24:24 PM
+User:              NT AUTHORITY\ANONYMOUS LOGON
+Computer:          DC1
+Description:
+Internal event:    Active Directory performed the following number of search
+operations
+within this time interval.
+
+Time interval (hours): 9
+Number of search operations: 24679
+
+During this time interval, the following number of search operations were
+characterized as either expensive or inefficient.
+
+Expensive search operations: 7
+Inefficient search operations: 22
+    
+    
+====================================
+Event Type:        Information
+Event Source:      NTDS General
+Event Category:    Field Engineering
+Event ID:          1644
+Date:              5/24/2003
+Time:              7:50:40 PM
+User:              ADATUM\rallen
+Computer:          DC1
+Description:
+Internal event:    A client issued a search operation with the following options.
+
+Client: 192.168.4.14
+Starting node: DC=adatum,DC=com
+Filter: (description=*)
+Search scope: subtree
+Attribute selection: cn
+Server controls:
+
+Visited entries: 10340
+Returned entries: 1000
+    
+    
+====================================
+Statistics
+==================================================
+Elapsed time: 0 (ms)
+Returned 18 of 23 visited - (78.26%)
+
+Used Filter:
+  (objectCategory=CN=Group,CN=Schema,CN=Configuration,CN=adatum,CN=com
+
+Used Indices:
+  Ancestors_index:23:N
+
+Pages referenced: 332
+Pages read from disk: 0
+Pages pre-read from Disk: 0
+
+Analysis
+--------------------------------------------------
+
+Indices used:
+
+Index name: Ancestors_index
+Record count: 23 (estimate)
+Index type: Normal attribute index
+Ancestor index used, possibly inefficient, verify filter
+    
+    
+====================================
+(objectCategory=CN=Group,CN=Schema,CN=Configuration,DC=adatum,DC=com)
+    
+    
+====================================
+***Searching ...
+ldap_search_ext_s(ld, "ou=Sales,DC=adatum,DC=com", 2, "(anr=Jim Smith)",
+attrList, 0, svrCtrls, ClntCtrls, 20, 1000 ,&msg)
+Result <0>:
+Matched DNs:
+Stats:
+        Call Time:        20 (ms)
+        Entries Returned:        1
+        Entries Visited:        2
+        Used Filter:         ( | (displayName=Jim Smith*) (givenName=Jim Smith*)
+(legacyExchangeDN=Jim Smith)  (msDS-AdditionalSamAccountName=Jim Smith*)
+(physicalDeliveryOfficeName=Jim Smith*)  (proxyAddresses=Jim Smith*) (name=Jim
+Smith*)  (sAMAccountName=Jim Smith*)
+(sn=Jim Smith*)  ( & (givenName=Jim*)  (sn=Smith*) )  ( & (givenName=Smith*)
+(sn=Jim*) ) )
+        Used Indexes:
+idx_givenName:10:N;idx_givenName:10:N;idx_sn:9:N;idx_
+sAMAccountName:8:N;idx_name:7:N;idx_proxyAddresses:6:N;idx_
+physicalDeliveryOfficeName:5:N;idx_msDS-AdditionalSamAccountName:4:N;idx_
+legacyExchangeDN:3:N;idx_givenName:2:N;idx_displayName:1:N;
+    
+    
+====================================
+> tracerpt <LogFileName>
+    
+    
+====================================
+tracerpt <LogFileName>
+    
+    
+====================================
+Files Processed:
+        AD_000001.etl
+Total Buffers Processed 5
+Total Events  Processed 193
+Total Events  Lost      0
+Start Time              Friday, May 23, 2003
+End Time                Friday, May 23, 2003
+Elapsed Time            24 sec
++-----------------------------------------------------------------------------+
+|Event Count Event Name           Event Type  Guid
+|
++----------------------------------------------------------------------------------
+-+
+|  1         EventTrace                 Header  {68fdd900-4a3e-11d1-84f4-
+0000f80464e3}|
+| 69         SamNameById                Start   {25059476-899f-11d2-819e-
+0000f875a064}|
+| 69         SamNameById                End     {25059476-899f-11d2-819e-
+0000f875a064}|
+|  2         KerbInitSecurityContext    End     {52e82f1a-7cd4-47ed-b5e5-
+fde7bf64cea6}|
+|  2         KerbInitSecurityContext    Start   {52e82f1a-7cd4-47ed-b5e5-
+fde7bf64cea6}|
+|  1         KerbAcceptSecurityContext  Start   {94acefe3-9e56-49e3-9895-
+7240a231c371}|
+|  1         KerbAcceptSecurityContext  End     {94acefe3-9e56-49e3-9895-
+7240a231c371}|
+|  1         SamGetAliasMem             Start   {1cf5fd19-1ac1-4324-84f7-
+970a634a91ee}|
+|  1         SamGetAliasMem             End     {1cf5fd19-1ac1-4324-84f7-
+970a634a91ee}|
+| 14         LdapRequest                End     {b9d4702a-6a98-11d2-b710-
+00c04fb998a2}|
+| 14         LdapRequest                Start   {b9d4702a-6a98-11d2-b710-
+00c04fb998a2}|
+|  1         DsLdapBind                 Start   {05acd009-daeb-11d1-be80-
+00c04fadfff5}|
+|  1         DsLdapBind                 End     {05acd009-daeb-11d1-be80-
+00c04fadfff5}|
+|  8         DsDirSearch                End     {05acd000-daeb-11d1-be80-
+00c04fadfff5}|
+|  8         DsDirSearch                Start   {05acd000-daeb-11d1-be80-
+00c04fadfff5}|
++----------------------------------------------------------------------------------
+-+
+    
+    
+====================================
+DsDirSearch, Start, 0x000003F4, 126982224636242128, 61350, 440530, "DS", 3, 3,
+1141178432, 2694848000, "192.168.5.26", "deep", "OU=Sales,DC=adatum,DC=com", "0,
+0
+
+DsDirSearch, End, 0x000003F4, 126982224636342271, 61350, 440540, "DS", 3, 5,
+1157955648, 2694848000, "0", "
+(&(objectCategory=CN=Person,CN=Schema,CN=Configuration,DC=adatum,DC=com)
+(objectClass=user)) 0, 0
+    
+    
+====================================
+' This code will send a simple email message
+' from a computer that is running its own SMTP server
+
+'------------Script Configuration--------------------
+strSubject = "Low hard disk space on server dc1."
+strFromLine = "admin@adatum.com"
+strToLine = "oncall@adatum.com"
+strText = "Available disk space on the C:\ drive of dc1." & _
+  "adatum.com has gone below 100MB."
+'----------------------------------------------------
+
+Set objMessage = CreateObject("CDO.Message")
+objMessage.Subject = strSubject
+objMessage.From = strFromLine
+objMessage.To = strToLine
+objMessage.TextBody = strText
+objMessage.Send
+    
+    
+====================================
+#send-mail.ps1
+param ([string]$SMTPserver    = "<SMTP Server IP Address>",
+    [string]$SMTPport         = "<SMTP Port>",
+    [string]$From             = "from@example.com",
+    [string]$To               = "to@example.com",
+    [string]$Subject          = "simple subject",
+    [string]$Body             = "simple body"
+)
+
+$var = (new-object net.mail.smtpclient($SMTPserver, $SMTPport))
+$var.Send($From, $To, $Subject, $Body)
+    
+    
+====================================
+objMessage.Configuration.Fields.Item _
+("http://schemas.microsoft.com/cdo/configuration/sendusing") = 2
+
+'Name or IP of the remote SMTP Server
+objMessage.Configuration.Fields.Item _
+("http://schemas.microsoft.com/cdo/configuration/smtpserver") = "smtp.myserver.com"
+
+'Port being used by the SMTP server (port 25 by default)
+objMessage.Configuration.Fields.Item _
+("http://schemas.microsoft.com/cdo/configuration/smtpserverport") = 25
+
+objMessage.Configuration.Fields.Update
+    
+    
+====================================
+> auditpol \\<DomainControllerName> /enable /directory:all
+    
+    
+====================================
+Event Type:        Success Audit
+Event Source:      Security
+Event Category:    Directory Service Access
+Event ID:          566
+Date:              5/26/2007
+Time:              7:24:10 PM
+User:              ADATUM\administrator
+Computer:          DC1
+Description:
+Object Operation:
+         Object Server:        DS
+         Operation Type:       Object Access
+         Object Type:          organizationalUnit
+         Object Name:          OU=Sales,DC=adatum,DC=com
+         Handle ID:            -
+         Primary User Name:    DC1$
+         Primary Domain:       ADATUM
+         Primary Logon ID:     (0x0,0x3E7)
+         Client User Name:     administrator
+         Client Domain:        ADATUM
+         Client Logon ID:      (0x0,0x3B4BE)
+         Accesses:             Create Child
+
+          Properties:
+         Create Child
+         contact
+
+         Additional Info:        CN=foobar,OU=Sales,DC=adatum,DC=com
+         Additional Info2:       CN=foobar,OU=Sales,DC=adatum,DC=com
+         Access Mask:            0x1
+    
+    
+====================================
+auditpol /set /subcategory:"directory service changes"
+    
+    
+====================================
+> dsadd
+quota -part <PartitionDN> -qlimit <QuotaLimit> -acct <PrincipalName>
+[-rdn <QuotaName>]
+    
+    
+====================================
+> dsadd quota -part dc=adatum,dc=com -qlimit 5 -acct ADATUM\rallen
+    
+    
+====================================
+> dsquery quota <PartitionDN> -acct <PrincipalName>
+    
+    
+====================================
+> dsquery quota dc=adatum,dc=com -acct ADATUM\rallen
+    
+    
+====================================
+dn: cn=NTDS Quotas,<PartitionDN>
+changetype: modify
+replace:
+msDs-TombstoneQuotaFactor
+msDs-
+TombstoneQuotaFactor: <0-100>
+-
+    
+    
+====================================
+> ldifde -v -i -f
+change_tombstone_quota.ldf
+    
+    
+====================================
+> dsmod partition <PartitionDN> -qtmbstawt <0-100>
+    
+    
+====================================
+> admod -b <PartitionDN> msDs-TombstoneQuotaFactor::<0-100>
+    
+    
+====================================
+' This code modifies the
+' tombstone quota factor for the specified partition.
+' ------ SCRIPT CONFIGURATION ------
+strPartitionDN = "<PartitionDN>" ' e.g. dc=adatum,dc=com
+intTombstoneFactor = <0-100>     ' e.g. 50
+' ------ END CONFIGURATION ---------
+
+set objPart = GetObject("LDAP://cn=NTDS Quotas," & strPartitionDN )
+objPart.Put "msDs-TombstoneQuotaFactor", intTombstoneLifetime
+objPart.SetInfo
+WScript.Echo "Set the tombstone quota factor for " & _
+             strPartitionDN & " to " & intTombstoneFactor
+    
+    
+====================================
+Set-QADObject -Identity <PartitionDN> -ObjectAttributes @{msDs-
+TombstoneQuotaFactor='<QuotaValue>'}
+
+$obj = [ADSI] "LDAP://<PartitionDN>"
+$obj.Put("msDS-TombstoneQuotaFactor", "<QuotaValue>")
+$obj.SetInfo()
+    
+    
+====================================
+dn: cn=NTDS Quotas,<NTDS Quotas DN>
+changetype: modify
+replace: msDs-
+DefaultQuota
+msDs-
+DefaultQuota: <NumberOfObjects>
+-
+    
+    
+====================================
+> ldifde -v -i -f set_default_quota.ldf
+    
+    
+====================================
+> dsmod partition <NTDS Quotas DN> -qdefault <DefaultQuota>
+    
+    
+====================================
+> admod -b <NTDS Quotas DN>
+msDs-DefaultQuota::<DefaultQuota>
+    
+    
+====================================
+' This code sets the
+' default quota for the specified partition.
+' ------ SCRIPT CONFIGURATION ------
+strPartitionDN = "<PartitionDN>"        ' e.g. dc=adatum,dc=com
+intDefaultQuota = <NumberOfObjects>     ' e.g. 10
+' ------ END CONFIGURATION ---------
+
+set objPart = GetObject("LDAP://cn=NTDS Quotas," & strPartitionDN )
+objPart.Put "msDs-DefaultQuota", intDefaultQuota
+objPart.SetInfo
+WScript.Echo "Set the default quota for " & _
+             strPartitionDN & " to " & intDefaultQuota
+    
+    
+====================================
+set-QADObject -Identity "cn=NTDS Quotas,<PartitionDN>" 
+-ObjectAttributes @{msDs-DefaultQuota='QuotaValue'}
+
+$obj = [ADSI] "LDAP://cn=NTDS Quotas,<PartitionDN>"
+$obj.Put("msDS-DefaultQuota", "<QuotaValue>")
+$obj.SetInfo()
+    
+    
+====================================
+> dsget user "<UserDN>" -part <PartitionDN> -qlimit -qused
+    
+    
+====================================
+>> Dn: CN=NTDS Quotas,DC=adatum,DC=com
+        3> msDS-TopQuotaUsage:
+<MS_DS_TOP_QUOTA_USAGE>
+        <partitionDN> DC=adatum,DC=com </partitionDN>
+        <ownerSID> S-1-5-21-1422208173-2062366415-1864960452-512 </ownerSID>
+        <quotaUsed> 152 </quotaUsed>
+        <tombstonedCount> 2 </tombstonedCount>
+        <liveCount> 150 </liveCount>
+</MS_DS_TOP_QUOTA_USAGE>
+;
+<MS_DS_TOP_QUOTA_USAGE>
+        <partitionDN> DC=adatum,DC=com </partitionDN>
+        <ownerSID> S-1-5-18 </ownerSID>
+        <quotaUsed> 43 </quotaUsed>
+        <tombstonedCount> 32 </tombstonedCount>
+        <liveCount> 11 </liveCount>
+</MS_DS_TOP_QUOTA_USAGE>
+;
+<MS_DS_TOP_QUOTA_USAGE>
+        <partitionDN> DC=adatum,DC=com </partitionDN>
+        <ownerSID> S-1-5-32-544 </ownerSID>
+        <quotaUsed> 14 </quotaUsed>
+        <tombstonedCount> 0 </tombstonedCount>
+        <liveCount> 14 </liveCount>
+</MS_DS_TOP_QUOTA_USAGE>
+    
+    
+====================================
+adfind -b "cn=ntds quotas, <PartitionDN>" msDs-TopQuotaUsage;binary -resolvesids
+    
+    
+====================================
+cn=NTDS Quotas,dc=adatum,dc=com
+> msDs-TopQuotaUsage;binary: NC: dc=adatum,dc=com Owner: ADATUM\Domain Admins
+Used:175 Tombstone: 0 LiveCount: 175
+cn=NTDS Quotas,dc=adatum,dc=com
+> msDs-TopQuotaUsage;binary: NC: dc=adatum,dc=com Owner: NT AUTHORITY\SYSTEM Used:
+62 Tombstone: 29 LiveCount: 33
+> msDs-TopQuotaUsage;binary: NC dc=adatum,dc=com Owner: BUILTIN\Administrators
+Used: 14 Tombstone: 0 LiveCount: 14
+    
+    
+==================

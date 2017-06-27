@@ -1,0 +1,938 @@
+chapter: DNS and DHCP
+==================
+dc1.adatum.com. 600 IN A 6.10.57.21
+    
+    
+====================================
+> dnscmd <DNSServerName> /zoneadd <ZoneName> /DsPrimary
+    
+    
+====================================
+' This code creates an AD-integrated forward zone.
+' ------ SCRIPT CONFIGURATION ------
+strServer = "<DNSServerName>" ' e.g. dc1.adatum.com
+strNewZone = "<ZoneName>"     ' e.g. othercorp.com
+' ------ END CONFIGURATION --------
+set objDNS = GetObject("winMgmts:\\" & strServer & "\root\MicrosoftDNS")
+set objDNSZone = objDNS.Get("MicrosoftDNS_Zone")
+strNull = objDNSZone.CreateZone(strNewZone, 0 , True)
+WScript.Echo "Created zone " & strNewZone
+    
+    
+====================================
+$zoneName = "<DNS Zone FQDN>"
+$wmi = [WMIClass]"\\<DNSServerName>\root\MicrosoftDNS:MicrosoftDNS_Zone"
+$wmi.CreateZone($zoneName, 0, $true)
+    
+    
+====================================
+> dnscmd /zoneadd <ZoneName> /DsPrimary /dp domaindnszones.adatum.com
+    
+    
+====================================
+> dnscmd <DNSServerName> /zoneadd <ZoneName> /DsPrimary
+    
+    
+====================================
+' This code creates an
+' AD-integrated reverse zone.
+' ------ SCRIPT CONFIGURATION ------
+strServer = "<DNSServerName>" ' e.g. dc1.adatum.com
+strNewZone = "<ZoneName>" ' e.g. 8.10.192.in-addr.arpa.
+' ------ END CONFIGURATION --------
+
+set objDNS = GetObject("winMgmts:\\" & strServer & "\root\MicrosoftDNS")
+set objDNSZone = objDNS.Get("MicrosoftDNS_Zone")
+strNull = objDNSZone.CreateZone(strNewZone, 0 , True)
+WScript.Echo "Created zone " & strNewZone
+    
+    
+====================================
+$zoneName = "<Reverse Lookup Zone FQDN>" # e.g., "8.10.192.in-addr.arpa"
+$wmi = [WMIClass]"\\<DNSServerName>\root\MicrosoftDNS:MicrosoftDNS_Zone"
+$wmi.CreateZone($zoneName, 0, $true)
+    
+    
+====================================
+> dnscmd <DNSServerName> /enumzones
+    
+    
+====================================
+' This code lists the zones that are hosted by the specified server.
+' ------ SCRIPT CONFIGURATION ------
+strServer = "<DNSServerName>" ' e.g. dc1.adatum.com
+' ------ END CONFIGURATION --------
+
+set objDNS = GetObject("winMgmts:\\" & strServer & "\root\MicrosoftDNS")
+set objDNSServer = objDNS.Get("MicrosoftDNS_Server.Name="".""")
+set objZones = objDNS.ExecQuery("Select * from MicrosoftDNS_Zone " & _
+                                "Where DnsServerName = '" & _
+                                objDNSServer.Name & "'")
+WScript.Echo "Zones on " & objDNSServer.Name
+for each objZone in objZones
+   WScript.Echo " " & objZOne.Name
+next
+    
+    
+====================================
+$computername = "<Server FQDN>"
+$server = Get-WmiObject -Class MicrosoftDNS_Zone -computer $computername -Namespace
+root\MicrosoftDNS
+$server | format-list ContainerName
+    
+    
+====================================
+Filter1:
+    /Primary
+    /Secondary
+    /Cache
+    /Auto-Created
+Filter2:
+    /Forward
+    /Reverse
+    
+    
+====================================
+> dnscmd <ServerName> /zoneresettype <ZoneName> /DsPrimary
+    
+    
+====================================
+' This code converts a zone to AD-integrated.
+' ------ SCRIPT CONFIGURATION ------
+strZone = "<ZoneName>"     ' e.g. adatum.com
+strServer = "<ServerName>" ' e.g. dc1.adatum.com
+' ------ END CONFIGURATION --------
+
+set objDNS = GetObject("winMgmts:\\" & strServer & "\root\MicrosoftDNS")
+set objDNSServer = objDNS.Get("MicrosoftDNS_Server.Name="".""")
+set objDNSZone = objDNS.Get("MicrosoftDNS_Zone.ContainerName=""" & _
+                            strZone & """,DnsServerName=""" & _
+                            objDNSServer.Name & """,Name=""" & strZone & """")
+strNull = objDNSZone.ChangeZoneType(0, True)
+objDNSZone.Put_
+WScript.Echo "Converted " & strZone & " to
+AD-Integrated"
+    
+    
+====================================
+> dnscmd <DNSServerName> /zonechangedirectorypartition <ZoneName> /domain
+    
+    
+====================================
+> dnscmd <ServerName> /ZoneResetSecondaries test.local /SecureNs
+    
+    
+====================================
+> dnscmd <ServerName> /ZoneResetSecondaries test.local /SecureList 172.16.11.33
+172.16.11.34
+    
+    
+====================================
+' This code configures the allowed secondaries for zone transfer and notify
+
+' XFR constants
+const ZONE_SECSECURE_NO_SECURITY = 0
+const ZONE_SECSECURE_NS_ONLY = 1
+const ZONE_SECSECURE_LIST_ONLY = 2
+const ZONE_SECSECURE_NO_XFR = 3
+
+' NOTIFY constants
+const ZONE_NOTIFY_OFF = 0
+const ZONE_NOTIFY_ALL_SECONDARIES = 1
+const ZONE_NOTIFY_LIST_ONLY = 2
+
+' ------ SCRIPT CONFIGURATION -------
+strZone = "<ZoneName>" ' e.g. adatum.com
+strServer = "<ServerName>" ' e.g. dc1.adatum.com
+
+' use one of the above XFR constants
+intSecureSecondaries = ZONE_SECSECURE_LIST_ONLY
+arrSecondaries = Array("1.1.1.2","1.1.1.3")
+
+' use one of the above NOTIFY constants
+intNotify = ZONE_NOTIFY_LIST_ONLY
+arrNotify = Array("<IP1>","<IP2>")
+' ------ END CONFIGURATION ---------
+
+set objDNS = GetObject("winMgmts:\\" & strServer & "\root\MicrosoftDNS")
+set objDNSServer = objDNS.Get("MicrosoftDNS_Server.Name="".""")
+set objDNSZone = objDNS.Get("MicrosoftDNS_Zone.ContainerName=""" & _
+                          strZone & """,DnsServerName=""" & _
+                          objDNSServer.Name & """,Name=""" & strZone & """")
+strNull = objDNSZone.ResetSecondaries(arrSecondaries,intSecureSecondaries, _
+                                      arrNotify,intNotify)
+objDNSZone.Put_
+WScript.Echo "Updated secondaries for zone transfer and notify"
+    
+    
+====================================
+$zone = Get-WmiObject -Class MicrosoftDNS_Zone -computer $computername -Namespace
+root\MicrosoftDNS -Filter 'ContainerName="<Zone Name>"'
+$zone.SecondaryServers="<IPAddress1>","<IPAddress2>"
+$zone.SecureSecondaries = $true
+$zone.Notify = $true
+$zone.Put()
+    
+    
+====================================
+> dnscmd <ServerName> /resetforwarders <IPsOfForwaders>
+    
+    
+====================================
+> dnscmd dns01 /resetforwarders 10.22.3.4 10.22.3.5
+    
+    
+====================================
+> dnscmd <ServerName> /zoneadd <DomainName> /forwarder <IPsOfForwarders>
+    
+    
+====================================
+> dnscmd <ServerName> /config /forwardingtimeout <NumSeconds>
+    
+    
+====================================
+> dnscmd <ServerName> /config <DomainName> /forwardertimeout <NumSeconds>
+    
+    
+====================================
+' This code enumerates the default forwarders.
+' ------ SCRIPT CONFIGURATION ------
+strServer = "<ServerName> " ' e.g. dns1.adatum.com
+' ------ END CONFIGURATION --------
+
+set objDNS = GetObject("winMgmts:\\" & strServer & "\root\MicrosoftDNS")
+set objDNSServer = objDNS.Get("MicrosoftDNS_Server.Name="".""")
+for each strForwarder in objDNSServer.Forwarders
+   Wscript.Echo strForwarder
+Next
+
+' This code sets the default forwarders.
+' ------ SCRIPT CONFIGURATION ------
+strServer = "<ServerName>" ' e.g. dns1.adatum.com
+arrForwarders = Array("<IP1>","<IP2>")
+' ------ END CONFIGURATION --------
+
+set objDNS = GetObject("winMgmts:\\" & strServer & "\root\MicrosoftDNS")
+set objDNSServer = objDNS.Get("MicrosoftDNS_Server.Name="".""")
+objDNSServer.Forwarders = arrForwarders
+objDNSServer.Put_
+Wscript.Echo "Successfully set default forwarders"
+' This code sets the
+' forwarders for a specific domain.
+' ------ SCRIPT CONFIGURATION ------
+strServer = "<ServerName>" ' e.g. dns01
+strNewZone = "<ZoneName>"  ' e.g. othercorp.com
+arrMasterIPs = Array("<IP1>","<IP2>") ' replace &lt;IPx&gt; with IPs of master server
+' ------ END CONFIGURATION --------
+on error resume next
+set objDNS = GetObject("winMgmts:\\" & strServer & "\root\MicrosoftDNS")
+set objDNSZone = objDNS.Get("MicrosoftDNS_Zone")
+strNull = objDNSZone.CreateZone(strNewZone,3,false,"",arrMasterIPs)
+if Err then
+   WScript.Echo "Error occurred creating zone: " & Err.Description
+else
+   WScript.Echo "Domain forwarder created."
+end if
+    
+    
+====================================
+$server = Get-WmiObject -Class MicrosoftDNS_Server -computer "<DNS Server FQDN>" 
+-namespace root\MicrosoftDNS
+$server.Forwarders = "<IP Address 1>", "<IP Address 2>"
+$server.Put()
+    
+    
+====================================
+> dsacls dc=<ZoneName>,cn=MicrosoftDNS,<DomainOrAppPartitionDN> /G
+<UserOrGroup>:GA;;
+    
+    
+====================================
+' This code grants full control for the specified user or group over
+' an AD-Integrated zone.
+' ------ SCRIPT CONFIGURATION -------
+strZoneDN = "dc=<ZoneName>,cn=MicrosoftDNS,<DomainOrAppPartitionDN>"
+strUserOrGroup = "<UserOrGroup>" ' e.g. joe@adatum.com or ADATUM\joe
+' ------ END CONFIGURATION ---------
+
+set objZone = GetObject("LDAP://" & strZoneDN)
+'############################
+' Constants
+'############################
+' ADS_ACETYPE_ENUM
+Const ADS_ACETYPE_ACCESS_ALLOWED_OBJECT = &h5
+
+' ADS_FLAGTYPE_ENUM
+Const ADS_FLAG_OBJECT_TYPE_PRESENT = &h1
+
+' ADS_RIGHTS_ENUM
+Const ADS_RIGHT_GENERIC_ALL = &h10000000
+
+'############################
+' Create ACL
+'############################
+
+set objSD = objZone.Get("nTSecurityDescriptor")
+set objDACL = objSD.DiscretionaryAcl
+
+' Full Control
+set objACE1 = CreateObject("AccessControlEntry")
+objACE1.Trustee    = strUserOrGroup
+objACE1.AccessMask = ADS_RIGHT_GENERIC_ALL
+objACE1.AceFlags   = 0
+objACE1.Flags      = ADS_FLAG_OBJECT_TYPE_PRESENT
+objACE1.AceType    = ADS_ACETYPE_ACCESS_ALLOWED_OBJECT
+
+objDACL.AddAce objACE1
+
+'############################
+' Set ACL
+'############################
+objSD.DiscretionaryAcl = objDACL
+objZone.Put "nTSecurityDescriptor", objSD
+objZone.SetInfo
+WScript.Echo "Delegated
+control of " & strZoneDN & " to " & strUserOrGroup
+    
+    
+====================================
+add-QADPermission -Identity <Group DN> -Account <User/Group DN> -Rights
+'GenericAll'-ApplyTo 'All'
+    
+    
+====================================
+> dnscmd <DNSServerName> /recordadd <ZoneName> <NodeName> <RecordType> <RRData>
+    
+    
+====================================
+> dnscmd dc1 /recordadd adatum.com wins01 A 19.25.52.2.25
+    
+    
+====================================
+> dnscmd <DNSServerName> /recorddelete <ZoneName> <NodeName> <RecordType> <RRData>
+    
+    
+====================================
+> dnscmd dc1 /recorddelete adatum.com wins01 A 19.25.52.2.25
+    
+    
+====================================
+' This code shows how to add an A record and PTR record using
+' the DNS WMI Provider.
+' ------ SCRIPT CONFIGURATION ------
+strForwardRRAdd = "test-xp.adatum.com. IN A 192.32.64.13"
+strReverseRRAdd = "13.64.32.192.in-addr.arpa IN PTR test-xp.adatum.com"
+strForwardDomain = "adatum.com"
+strReverseDomain = "192.in-addr.arpa."
+' ------ END CONFIGURATION --------
+
+set objDNS = GetObject("winMgmts:root\MicrosoftDNS")
+set objRR = objDNS.Get("MicrosoftDNS_ResourceRecord")
+set objDNSServer = objDNS.Get("MicrosoftDNS_Server.Name="".""")
+
+' Create the A record
+strNull = objRR.CreateInstanceFromTextRepresentation( _
+                  objDNSServer.Name, _
+                  strForwardDomain, _
+                  strForwardRRAdd, _
+                  objOutParam)
+set objRR2 = objDNS.Get(objOutParam)
+WScript.Echo "Created Record: " & objRR2.TextRepresentation
+
+' Create the PTR record
+strNull = objRR.CreateInstanceFromTextRepresentation( _
+                  objDNSServer.Name, _
+                  strReverseDomain, _
+                  strReverseRRAdd, _
+                  objOutParam)
+set objRR2 = objDNS.Get(objOutParam)
+WScript.Echo "Created Record: " & objRR2.TextRepresentation
+
+' This code shows how to delete an A and PTR record for the record
+' we created in the previous example.
+
+strHostName = "test-xp.adatum.com."
+
+set objDNS = GetObject("winMgmts:root\MicrosoftDNS")
+set objDNSServer = objDNS.Get("MicrosoftDNS_Server.Name="".""")
+
+set objRRs = objDNS.ExecQuery(" select * " & _
+                          " from MicrosoftDNS_ResourceRecord " & _
+                          " where OwnerName = """ & strHostName & """" & _
+                          " Or RecordData = """ & strHostName & """")
+if objRRs.Count < 1 then
+   WScript.Echo "No matches found for " & strHostName
+else
+   for each objRR in objRRs
+      objRR.Delete_
+      WScript.Echo "Deleted " & objRR.TextRepresentation
+   next
+end if
+    
+    
+====================================
+$server = "<DNS Server FQDN>"
+$zone = "<DNS Zone>"
+$name = "<A Record FQDN>"
+$class = 1 # 1 corresponds to the 'IN' record class
+$ttl = 3600
+$address = "<IP Address>"
+$newRecord = [WmiClass]\\<ServerName>\root\MicrosoftDNS:MicrosoftDNS_AType
+$newRecord.CreateInstanceFromPropertydata($server, $zone, $name, $class, $ttl,
+$address
+    
+    
+====================================
+$record = Get-WmiObject -ComputerName <Server Name> -Namespace 'root\MicrosoftDNS'
+-Class MicrosoftDNS_AType  -Filter "IPAddress = '<IP Address>'"
+$record.psbase.Delete()
+    
+    
+====================================
+> dnscmd /recordadd dc1.adatum.com SRV 50 100 88 _kerberos
+    
+    
+====================================
+test-xp.adatum.com IN A 192.32.64.13
+    
+    
+====================================
+> nslookup -type=<RecordType> <RecordName>
+    
+    
+====================================
+' This code prints the
+' resource records that match
+' the specified name.
+' ------ SCRIPT CONFIGURATION ------
+strQuery = "<RecordName>"
+' ------ END CONFIGURATION --------
+
+set objDNS = GetObject("winMgmts:root\MicrosoftDNS")
+set objDNSServer = objDNS.Get("MicrosoftDNS_Server.Name="".""")
+set objRRs = objDNS.ExecQuery(" select * " & _
+                              " from MicrosoftDNS_ResourceRecord" & _
+                              " where OwnerName = """ & strQuery & """" & _
+                              " Or DomainName = """ & strQuery & """" & _
+                              " Or RecordData = """ & strQuery & """")
+if objRRs.Count < 1 then
+   WScript.Echo "No matches found for " & strHostName & " of " _
+                & strRecordType & " type"
+else
+   for each objRR in objRRs
+      WScript.Echo objRR.TextRepresentation
+   next
+end if
+    
+    
+====================================
+Get-WmiObject -ComputerName <ServerName> -Namespace 'root\MicrosoftDNS' -Class
+MicrosoftDNS_AType  -Filter "ContainerName ='<ZoneName>'" | Where-Object
+{$_.ownername -eq "<Record FQDN>" | Select OwnerName, IPAddress
+    
+    
+====================================
+> dnscmd <DNSServerName> /config /<Setting> <Value>
+    
+    
+====================================
+> dnscmd dns01 /config /EnableDnsSec 1
+    
+    
+====================================
+> dnscmd /config /NoTcp 0
+    
+    
+====================================
+> dnscmd dns02 /config /DsPollingInterval 60
+    
+    
+====================================
+set objDNS = GetObject("winMgmts:root\MicrosoftDNS")
+set objDNSServer = objDNS.Get("MicrosoftDNS_Server.Name="".""")
+objDNSServer.<Setting> = <Value> ' e.g. objDNSServer.AllowUpdate = TRUE
+objDNSServer.Put_
+    
+    
+====================================
+$server = Get-WmiObject -Class MicrosoftDNS_Server -computer "<Server FQDN>" 
+-namespace root\MicrosoftDNS
+$server.<Setting> = <Value> # e.g. $server.EnableDNSSec = $false
+$server.Put()
+    
+    
+====================================
+> dnscmd <DNSServerName> /config /ScavengingInterval <  ScavengingMinutes>
+> dnscmd <DNSServerName> /config /DefaultAgingState 1
+> dnscmd <DNSServerName> /config /DefaultNoRefreshInterval <NoRefreshMinutes>
+> dnscmd <DNSServerName> /config /DefaultRefreshInterval <RefreshMinutes>
+> dnscmd <DNSServerName> /config ..AllZones /aging 1
+    
+    
+====================================
+' This code enables scavenging for all AD-integrated zones.
+' ------ SCRIPT CONFIGURATION ------
+strServer = "<DNSServerName>"
+intScavengingInterval = <ScavengingMinutes>
+intNoRefreshInterval  = <NoRefreshMinutes>
+intRefreshInterval    = <RefreshMinutes>
+' ------ END CONFIGURATION --------
+
+set objDNS = GetObject("winMgmts:\\" & strServer & "\root\MicrosoftDNS")
+set objDNSServer = objDNS.Get("MicrosoftDNS_Server.Name="".""")
+
+objDNSServer.ScavengingInterval       = intScavengingInterval
+objDNSServer.DefaultNoRefreshInterval = intNoRefreshInterval
+objDNSServer.DefaultRefreshInterval   = intRefreshInterval
+objDNSServer.DefaultAgingState        = TRUE
+objDNSServer.Put_
+WScript.Echo "Configured server scavenging settings"
+
+set objZones = objDNS.ExecQuery("Select * from MicrosoftDNS_Zone " & _
+                                "Where DnsServerName = '" & _
+                                       objDNSServer.Name & "'" & _
+                                " And DsIntegrated = TRUE")
+WScript.Echo "Configuring AD-integrated zones: "
+for each objZone in objZones
+   WScript.Echo " " & objZone.Name & " HERE: " & objZone.Aging
+   objZone.Aging = 1
+   objZone.Put_
+next
+    
+    
+====================================
+$server = Get-WmiObject -Class MicrosoftDNS_Server -computer "<Server FQDN>" 
+-namespace root\MicrosoftDNS
+$server.ScavengingInterval = <Scavenging Interval>
+$server.DefaultNoRefreshInterval = <No Refresh Interval>
+$server.DefaultRefreshInterval = <Refresh Interval>
+$server.DefaultAgingState = $true
+$server.Put()
+    
+    
+====================================
+> ipconfig /flushdns
+    
+    
+====================================
+> dnscmd <DNSServerName> /clearcache
+    
+    
+====================================
+' This code clears the DNS server cache on the specified server.
+' ------ SCRIPT CONFIGURATION ------
+strServer = "<DNSServerName>" ' e.g. dc1.adatum.com
+' ------ END CONFIGURATION --------
+
+set objDNS = GetObject("winmgmts:\\" & strServer & "\root\MicrosoftDNS")
+set objDNSServer = objDNS.Get("MicrosoftDNS_Server.Name="".""")
+set objDNSCache = objDNS.Get("MicrosoftDNS_Cache.ContainerName=""..Cache""" & _
+                             ",DnsServerName=""" & objDNSServer.Name & _
+                             """,Name=""..Cache""")
+objDNSCache.ClearCache
+WScript.Echo "Cleared server cache"
+    
+    
+====================================
+$cache = Get-WmiObject -Class MicrosoftDNS_Cache -computer "<Server FQDN>"
+-namespace root\MicrosoftDNS
+$cache.ClearCache()
+    
+    
+====================================
+> dcdiag /test:RegisterInDNS /DnsDomain:dc1
+
+Starting test: RegisterInDNS
+  DNS configuration is sufficient to allow this domain controller to
+  dynamically register the domain controller Locator records in DNS.
+
+  The DNS configuration is sufficient to allow this computer to dynamically
+  register the A record corresponding to its DNS name.
+
+......................... dc1 passed test RegisterInDNS
+    
+    
+====================================
+Starting test: RegisterInDNS
+   This domain controller cannot register domain controller Locator DNS
+   records. This is because either the DNS server with IP address
+   6.10.45.14 does not support dynamic updates or the zone adatum.com is
+   configured to prevent dynamic updates.
+
+   In order for this domain controller to be located by other domain members
+   and domain controllers, the domain controller Locator DNS records must be
+   added to DNS. You have the following options:
+
+   1. Configure the adatum.com zone and the DNS server with IP address
+   6.10.45.14 to allow dynamic updates. If the DNS server does not
+   support dynamic updates, you might need to upgrade it.
+
+   2. Migrate the adatum.com zone to a DNS server that supports dynamic
+   updates (for example, a Windows 2000 DNS server).
+
+   3. Delegate the zones _msdcs.adatum.com, _sites.adatum.com,
+   _tcp.adatum.com, and _udp.adatum.com to a DNS server that supports
+   dynamic updates (for example, a Windows 2000 DNS server); or
+
+   4. Manually add to the DNS records specified in the
+   systemroot\system32\config\netlogon.dns file.
+
+   DcDiag cannot reach a conclusive result because it cannot interpret the
+   following message that was returned: 9501.
+
+   ......................... dc1 failed test RegisterInDNS
+    
+    
+====================================
+> dnscmd <ServerName> /Config /LogLevel <EventFlagSumInHex>
+    
+    
+====================================
+> dnscmd <ServerName> /Config /LogFilePath <DirectoryAndFilePath>
+    
+    
+====================================
+> dnscmd <ServerName> /Config /LogIPFilterList <IPAddress1>[,<IPAddress2>...]
+    
+    
+====================================
+> dnscmd <ServerName> /Config /LogFileMaxSize <NumberOfBytesInHex>
+    
+    
+====================================
+> dnscmd <ServerName> /Config /LogLevel 0
+    
+    
+====================================
+' This code enables
+' DNS debug logging.
+' ------ SCRIPT CONFIGURATION -------
+strServer = "<ServerName>" ' e.g. dc1
+' The log level must be in decimal, not hex like dnscmd
+intLogLevel = <EventFlagSumInDecimal> ' e.g. 65535
+arrFilterList = Array("<IPAddress1>") ' e.g. 192.168.1.12
+strFilePath = <DirectoryAndFilePath> ' e.g. c:\dnslog.txt
+intFileSize = <NumberOfBytesInDecimal> ' e.g. 50000000
+' ------ END CONFIGURATION ---------
+
+set objDNS = GetObject("winMgmts:\\" & strServer & "\root\MicrosoftDNS")
+set objDNSServer = objDNS.Get("MicrosoftDNS_Server.Name="".""")
+objDNSServer.LogLevel = intLogLevel
+objDNSServer.LogIPFilterList = arrFilterList
+
+objDNSServer. LogFilePath = strFilePath
+objDNSServer.LogFileMaxSize = intFileSize
+objDNSServer.Put_
+WScript.Echo "Enabled DNS  Debug Logging on " & strServer
+
+' To disable debug logging, set the intLogLevel variable to 0
+    
+    
+====================================
+$arrFilterList = "<IPAddress1>", "<IPAddress2>"
+$server = Get-WmiObject -Class MicrosoftDNS_Server -computer "<Server FQDN>" 
+-namespace root\MicrosoftDNS
+$server.LogLevel = <Log Level> # i.e., 65535
+$server.LogIPFilterList = $arrFilterList
+$server.LogFilePath = "<File Path>"
+$server.LogFileMaxSize = "<Max File Size>"
+$server.Put()
+    
+    
+====================================
+> nltest /dsregdns /server:<DomainControllerName>
+    
+    
+====================================
+> nltest /dsderegdns: <DomainControllerName> /dom:<DomainDNSName>
+    
+    
+====================================
+> reg add HKLM\System\CurrentControlSet\Services\Netlogon\Parameters /v
+UseDynamicDNS /t REG_DWORD /d 0
+The operation completed successfully.
+
+> net stop netlogon
+The Net Logon service is stopping.
+The Net Logon service was stopped successfully.
+
+> del %SystemRoot%\system32\config\netlogon.dnb
+
+> net start netlogon
+The Net Logon service is starting.......
+The Net Logon service was started successfully.
+    
+    
+====================================
+' This code prevents a DC from registering resource records dynamically.
+' It must be run directly on the server.
+
+' Create Registry Value
+const HKLM = &H80000002
+set oReg=GetObject("winmgmts:root\default:StdRegProv")
+strKeyPath = "System\CurrentControlSet\Services\Netlogon\Parameters"
+if oReg.SetDWORDValue(HKLM,strKeyPath,"UseDynamicDNS",0) <> 0 then
+   WScript.Echo "Error creating registry value"
+else
+   WScript.Echo "Created registry value successfully"
+end if
+
+' Stop Netlogon service
+strService = "Netlogon"
+set objService = GetObject("WinMgmts:root/cimv2:Win32_Service.Name='" & _
+                           strService & "'")
+if objService.StopService <> 0 then
+   WScript.Echo "Error stopping " & strService & " service"
+else
+   WScript.Echo "Stopped " & strService & " service successfully"
+end if
+
+' Delete netlogon.dnb file
+set WshShell = CreateObject("WScript.Shell")
+set objFSO = CreateObject("Scripting.FileSystemObject")
+set objFile = objFSO.GetFile( _
+                    WshShell.ExpandEnvironmentStrings("%SystemRoot%") _
+                    & "\system32\config\netlogon.dnb" )
+
+objFile.Delete
+WScript.Echo "Deleted netlogon.dnb successfully"
+
+' Start Netlogon service
+if objService.StartService <> 0 then
+   WScript.Echo "Error starting " & strService & " service"
+else
+   WScript.Echo "Started " & strService & " service successfully"
+end if
+
+WScript.Echo
+WScript.Echo "Done"
+    
+    
+====================================
+$strRegPath = "HKLM:\System\CurrentControlSet\Services\Netlogon\Parameters"
+new-ItemProperty -path $strRegPath -name "UseDynamicDNS" -type DWORD
+set-ItemProperty -path $strRegPath -name "UseDynamicDNS" -value "0"
+
+Stop-Service netlogon
+$strPath = join-path (get-content env:SystemRoot) system32\config\netlogon.dnb
+Remove-Item $strPath
+Start-Service netlogon
+    
+    
+====================================
+> reg add HKLM\System\CurrentControlSet\Services\Netlogon\Parameters /v
+DnsAvoidRegisterRecords /t REG_MULTI_SZ /d Ldap\0Gc\0GcIpAddress
+The operation completed successfully.
+
+> net stop netlogon
+The Net Logon service is stopping.
+The Net Logon service was stopped successfully.
+
+> del %SystemRoot%\system32\config\netlogon.dnb
+
+> net start netlogon
+The Net Logon service is starting.......
+The Net Logon service was started successfully.
+    
+    
+====================================
+' This code prevents a DC from registering the resource records
+' associated with the Ldap, Gc, and GcIpAddress mnemonics and must be run
+' directly on the server.
+
+' Create Registry Value
+const HKLM = &H80000002
+set objReg = GetObject("winmgmts:root\default:StdRegProv")
+strKeyPath = "System\CurrentControlSet\Services\Netlogon\Parameters"
+' prevent Ldap, Gc, and GCIpAddress records from being registered
+arrValues = Array("Ldap","Gc","GcIpAddress")
+if objReg.SetMultiStringValue(HKLM,strKeyPath,"DnsAvoidRegisterRecords", _
+                              arrValues) <> 0 then
+   WScript.Echo "Error creating registry value"
+else
+   WScript.Echo "Created registry value successfully"
+end if
+
+' Stop Netlogon service
+strService = "Netlogon"
+set objService = GetObject("WinMgmts:root/cimv2:Win32_Service.Name='" & _
+                           strService & "'")
+if objService.StopService <> 0 then
+   WScript.Echo "Error stopping " & strService & " service"
+else
+   WScript.Echo "Stopped " & strService & " service successfully"
+end if
+
+' Delete netlogon.dnb file
+On Error Resume Next
+set WshShell = CreateObject("WScript.Shell")
+set objFSO = CreateObject("Scripting.FileSystemObject")
+set objFile = objFSO.GetFile( _
+                      WshShell.ExpandEnvironmentStrings("%systemroot%") _
+                      & "\system32\config\netlogon.dnb")
+objFile.Delete
+if (Err.Number <> 0) then
+   WScript.Echo "Error deleting netlogon.dnb: " & Err.Description
+else
+   WScript.Echo "Deleted netlogon.dnb successfully"
+end if
+
+' Start Netlogon service
+if objService.StartService <> 0 then
+   WScript.Echo "Error starting " & strService & " service"
+else
+   WScript.Echo "Started " & strService & " service successfully"
+end if
+
+WScript.Echo
+WScript.Echo "Done"
+    
+    
+====================================
+$strRegPath = "HKLM:\System\CurrentControlSet\Services\Netlogon\Parameters"
+$arrValues = "Ldap", "Gc", "GcIpAddress"
+new-ItemProperty -path $strRegPath -name "DnsAvoidRegisterRecords" -type
+MultiString
+set-ItemProperty -path $strRegPath -name "DnsAvoidRegisterRecords" -value
+$arrValues
+
+Stop-Service netlogon
+$strPath = join-path (get-content env:SystemRoot) system32\config\netlogon.dnb
+Remove-Item $strPath
+Start-Service netlogon
+    
+    
+====================================
+dn: <DomainDN>
+changetype: modify
+add: msDS-AllowedDNSSuffixes
+msDS-AllowedDNSSuffixes: <DNSSuffix>
+-
+    
+    
+====================================
+> ldifde -v -i -f add_dns_suffix.ldf.ldf
+    
+    
+====================================
+> admod -b <DomainDN> msDS-AllowedDNSSuffixes:+:<DNSSuffix>
+    
+    
+====================================
+' This code adds a domain suffix that can be used by clients in the domain.
+' ------ SCRIPT CONFIGURATION ------
+strDNSSuffix = "<DNSSuffix>"  ' e.g. othercorp.com
+strDomain = "<DomainDNSName>" ' e.g. amer.adatum.com
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strDomain & "/RootDSE")
+set objDomain = GetObject("LDAP://" & objRootDSE.Get("defaultNamingContext") )
+objDomain.Put "msDS-AllowedDNSSuffixes", strDNSSuffix
+objDomain.SetInfo
+
+WScript.Echo "Added " & strDNSSuffix & " to suffix list."
+    
+    
+====================================
+set-QADObject -Identity "<Domain DN>" -ObjectAttributes @{msDS-
+AllowedDNSSuffixes="<DomainDNSName>"}
+
+$objDom = [ADSI] "LDAP://<Domain DN>"
+$strSuffix = "<DomainDNSName>"
+$objDom.PutEx(3, "msDS-AllowedDNSSuffixes", @($strSuffix))
+$objDom.SetInfo()
+    
+    
+====================================
+> netsh dhcp add server <DHCPServerName> <DHCPServerIP>
+    
+    
+====================================
+> netsh dhcp add server dhcp01.adatum.com 192.168.191.15
+    
+    
+====================================
+> netsh dhcp show server
+    
+    
+====================================
+> dhcploc 10.0.0.101 10.0.0.200
+    
+    
+====================================
+14:24:28 (IP)0.0.0.0     NACK    (S)10.0.0.40    ***
+
+14:24:28 (IP)10.0.0.103  OFFER   (S)10.0.0.60    ***
+
+14:24:28 (IP)10.0.0.201  ACK     (S)10.0.0.30
+
+14:24:23 (IP)10.0.0.203  ACK     (S)10.0.0.30
+
+14:24:25 (IP)10.0.0.4    OFFER   (S)10.0.0.30
+
+14:24:35 (IP)10.0.0.2    OFFER   (S)10.0.0.40
+
+14:24:36 (IP)10.0.0.3    OFFER   (S)10.0.0.26    ***
+    
+    
+====================================
+> dsmod group "<GroupDN>" -addmbr "<MemberDN>"
+    
+    
+====================================
+> admod -b "<GroupDN>" member:+:"<MemberDN>"
+    
+    
+====================================
+> dsmod group "<GroupDN>" -rmmbr "<MemberDN>"
+    
+    
+====================================
+> admod -b "<GroupDN>" member:-:"<MemberDN>"
+    
+    
+====================================
+> dsmod group "<GroupDN>" -chmbr "<Member1DN Member2DN ...>"
+    
+    
+====================================
+> admod -b "<GroupDN>" member:+-:"<Member1DN>;<Member2DN>;<Member3DN>"
+    
+    
+====================================
+' This code adds a member to the DHCP Administrators group.
+' ------ SCRIPT CONFIGURATION ------
+strGroupDN = "<GroupDN>" ' e.g. "cn=
+DHCP Administrators,cn=Users,<DomainDN>
+strMemberDN = "<MemberDN>" ' e.g. cn=jsmith,cn=users,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+set objGroup = GetObject("LDAP://" & strGroupDN)
+' Add a member
+objGroup.Add("LDAP://" & strMemberDN)
+
+' This code removes a member from the
+' DHCP Administrators group.
+
+set objGroup = GetObject("LDAP://" & strGroupDN)
+objGroup.Remove("LDAP://" & strMemberDN)
+    
+    
+====================================
+Add-QADGroupMember -Identity "cn=DHCP Administrators,cn=Users,<Domain DN>" -Member
+"<User DN>"
+RemoveQADGroupMember -Identity "cn=DHCP Administrators,cn=Users,<Domain DN>" 
+-Member "<User DN>"
+    
+    
+====================================
+$objGroup = [ADSI] "LDAP://cn=DHCP Administrators,cn=Users,<Domain DN>"
+$objGroup.Add("LDAP://<User DN>")
+    
+    
+====================================
+$objGroup = [ADSI] "LDAP://cn=DHCP Administrators,cn=Users,<Domain DN>"
+$objGroup.Remove("LDAP://<User DN>")
+    
+    
+==================

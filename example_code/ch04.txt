@@ -1,0 +1,1305 @@
+chapter: Searching and Manipulating Objects
+==================
+> adfind -rootdse
+    
+    
+====================================
+>currentTime: 20051130204431.0Z
+>subschemaSubentry: CN=Aggregate,CN=Schema,CN=Configuration,DC=contoso,DC=com
+>dsServiceName: CN=NTDS Settings,CN=2K3-SP1-R2,CN=Servers,CN=Default-First-Site-
+Name,CN=Sites,CN=Configuration,DC=contoso,DC=com
+>namingContexts: DC=contoso,DC=com
+>namingContexts: CN=Configuration,DC=contoso,DC=com
+>namingContexts: CN=Schema,CN=Configuration,DC=contoso,DC=com
+>namingContexts: DC=DomainDnsZones,DC=contoso,DC=com
+>namingContexts: DC=ForestDnsZones,DC=contoso,DC=com
+>defaultNamingContext: DC=contoso,DC=com
+>schemaNamingContext: CN=Schema,CN=Configuration,DC=contoso,DC=com
+>configurationNamingContext: CN=Configuration,DC=contoso,DC=com
+>rootDomainNamingContext: DC=contoso,DC=com
+>serverName: CN=2K3-SP1-R2,CN=Servers,CN=Default-First-Site-Name,CN=Sites,
+CN=Configuration,DC=contoso,DC=com
+>supportedCapabilities: 1.2.840.113556.1.4.800
+>supportedCapabilities: 1.2.840.113556.1.4.1670
+>supportedCapabilities: 1.2.840.113556.1.4.1791
+>isSynchronized: TRUE
+>isGlobalCatalogReady: TRUE
+>domainFunctionality: 0
+>forestFunctionality: 0
+>domainControllerFunctionality: 2
+    
+    
+====================================
+' This code prints the
+' attributes of the RootDSE
+set objRootDSE = GetObject("LDAP://RootDSE")
+objRootDSE.GetInfo
+for i = 0 to objRootDSE.PropertyCount - 1
+    set strProp = objRootDSE.Item(i)
+    WScript.Echo strProp.Name & " "
+    for each strPropval in strProp.Values
+       WScript.Echo " " & strPropval.CaseIgnoreString
+    next
+ next
+    
+    
+====================================
+ $root = [ADSI] "LDAP://RootDSE"
+ $colRootProps = $root | get-member
+ foreach ($prop in $colRootProps) { write-host $prop.Name -nonewline; 
+>> write-host ": " -nonewline;
+>> write-host $root.($prop.Name) 
+>> } 
+>>
+    
+    
+====================================
+ld = ldap_open("dc01", 389);
+Established connection to dc01.
+Retrieving base DSA information …
+Result <0>: (null)
+Matched DNs:
+Getting 1 entries:
+>> Dn:
+1> currentTime: 07/26/2008 15:29:42 Pacific Standard Time Pacific Daylight Time;
+
+1> subschemaSubentry:CN=Aggregate,CN=Schema,CN=Configuration,DC=adatum,DC=com;
+
+1> dsServiceName: CN=NTDS Settings,CN=DC01,CN=Servers,CN=Default-First-Site-
+Name,CN=Sites,CN=Configuration,DC=adatum,DC=com;
+
+5> namingContexts: DC=adatum,DC=com; CN=Configuration,DC=adatum,DC=com;
+CN=Schema,CN=Configuration,DC=adatum,DC=com;
+DC=DomainDnsZones,DC=adatum,DC=com; DC=ForestDnsZones,DC=adatum,DC=com;
+
+1> defaultNamingContext: DC=adatum,DC=com;
+
+1> schemaNamingContext: CN=Schema,CN=Configuration,DC=adatum,DC=com;
+
+1> configurationNamingContext: CN=Configuration,DC=adatum,DC=com;
+
+1> rootDomainNamingContext: DC=adatum,DC=com;
+
+21> supportedControl: 1.2.840.113556.1.4.319; 1.2.840.113556.1.4.801;
+1.2.840.113556.
+1.4.473; 1.2.840.113556.1.4.528; 1.2.840.113556.1.4.417; 1.2.840.113556.1.4.619;
+1.2.
+840.113556.1.4.841; 1.2.840.113556.1.4.529; 1.2.840.113556.1.4.805;
+1.2.840.113556.1.
+4.521; 1.2.840.113556.1.4.970; 1.2.840.113556.1.4.1338; 1.2.840.113556.1.4.474;
+1.2.
+840.113556.1.4.1339; 1.2.840.113556.1.4.1340; 1.2.840.113556.1.4.1413; 2.16.840.1.
+113730.3.4.9; 2.16.840.1.113730.3.4.10; 1.2.840.113556.1.4.1504;
+1.2.840.113556.1.4.
+1852; 1.2.840.113556.1.4.802;
+
+2> supportedLDAPVersion: 3; 2;
+
+12> supportedLDAPPolicies: MaxPoolThreads; MaxDatagramRecv; MaxReceiveBuffer;
+InitRecvTimeout; MaxConnections; MaxConnIdleTime; MaxPageSize; MaxQueryDuration;
+MaxTempTableSize; MaxResultSetSize; MaxNotificationPerConn; MaxValRange;
+
+1> highestCommittedUSN: 53242;
+
+4> supportedSASLMechanisms: GSSAPI; GSS-SPNEGO; EXTERNAL; DIGEST-MD5;
+
+1> dnsHostName: dc01.adatum.com;
+
+1> ldapServiceName: adatum.com:dc01$@ADATUM.COM;
+
+1> serverName: CN=DC01,CN=Servers,CN=Default-First-Site-
+Name,CN=Sites,CN=Configuration,DC=adatum,DC=com;
+
+3> supportedCapabilities: 1.2.840.113556.1.4.800; 1.2.840.113556.1.4.1670; 1.2.840.
+113556.1.4.1791;
+
+1> isSynchronized: TRUE;
+
+1> isGlobalCatalogReady: TRUE;
+
+1> domainFunctionality: 0 = ( DS_BEHAVIOR_WIN2000 );
+
+1> forestFunctionality: 0 = ( DS_BEHAVIOR_WIN2000 );
+
+1> domainControllerFunctionality: 2 = ( DS_BEHAVIOR_WIN2003 );
+    
+    
+====================================
+strDefaultNC = objRootDSE.Get("defaultNamingContext")
+    
+    
+====================================
+set objUser = GetObject("LDAP://cn=administrator,cn=users," & _
+                        objRootDSE.Get("defaultNamingContext") )
+    
+    
+====================================
+> dsquery * "<ObjectDN>" -scope base -attr *
+    
+    
+====================================
+> enumprop "LDAP://<ObjectDN>"
+    
+    
+====================================
+> adfind -b <Parent Container DN> -f cn=<Object CN> -tdcgt
+    
+    
+====================================
+C:\>adfind -b dc=contoso,dc=com -f cn=administrator -tdc -tdcgt
+
+AdFind V01.27.00cpp Joe Richards (joe@joeware.net) November 2005
+
+Using server: 2k3-sp1-r2.contoso.com:389
+Directory: Windows Server 2003
+
+dn:CN=Administrator,CN=Users,DC=contoso,DC=com
+>objectClass: top
+>objectClass: person
+>objectClass: organizationalPerson
+>objectClass: user
+>cn: Administrator
+>description: Built-in account for administering the computer/domain
+>distinguishedName: CN=Administrator,CN=Users,DC=contoso,DC=com
+>instanceType: 4
+>whenCreated: 05/26/2008-12:13:15 Eastern Daylight Time
+>whenChanged: 
+05/26/2008-12:13:15 Eastern Daylight Time
+
+>uSNCreated: 8194
+>memberOf: CN=Group Policy Creator Owners,CN=Users,DC=contoso,DC=com
+>memberOf: CN=Domain Admins,CN=Users,DC=contoso,DC=com
+>memberOf: CN=Enterprise Admins,CN=Users,DC=contoso,DC=com
+>memberOf: CN=Schema Admins,CN=Users,DC=contoso,DC=com
+>memberOf: CN=Administrators,CN=Builtin,DC=contoso,DC=com
+>uSNChanged: 13905
+>name: Administrator
+>objectGUID: {A5C30B01-535C-4BCF-83C1-ABA5D445B9F6}
+>userAccountControl: 66048
+>badPwdCount: 0
+>codePage: 0
+>countryCode: 0
+>badPasswordTime: 0
+>lastLogoff: 0
+>lastLogon: 05/26/2008-23:09:03 Eastern Daylight Time
+>pwdLastSet: 5/17/2008-18:09:27 Eastern Daylight Time
+>primaryGroupID: 513
+>objectSid: S-1-5-21-751427308-4037830757-4109730475-500
+>adminCount: 1
+>accountExpires: 00/00/0000-00:00:00
+>logonCount: 7
+>sAMAccountName: Administrator
+>sAMAccountType: 805306368
+>objectCategory: CN=Person,CN=Schema,CN=Configuration,DC=contoso,DC=com
+>isCriticalSystemObject: TRUE
+
+1 Objects returned
+    
+    
+====================================
+' This code prints all defaultVBScriptobjectsdisplaying attributes of attributes for the specified object.
+' ------ SCRIPT CONFIGURATION ------
+strObjectDN = "<ObjectDN>" ' e.g. cn=jsmith,cn=users,dc=adatum,dc=com
+' ------ END CONFIGURATION ---------
+
+DisplayAttributes("LDAP://" & strObjectDN)
+
+Function DisplayAttributes( strObjectADsPath )
+
+   set objObject = GetObject(strObjectADsPath)
+   objObject.GetInfo
+
+   'Declare the hash (dictionary), constants and variables
+   'Values taken from ADSTYPEENUM
+   set dicADsType = CreateObject("Scripting.Dictionary")
+   dicADsType.Add 0, "INVALID"
+   dicADsType.Add 1, "DN_STRING"
+   dicADsType.Add 2, "CASE_EXACT_STRING"
+   dicADsType.Add 3, "CASE_IGNORE_STRING"
+   dicADsType.Add 4, "PRINTABLE_STRING"
+   dicADsType.Add 5, "NUMERIC_STRING"
+   dicADsType.Add 6, "BOOLEAN"
+   dicADsType.Add 7, "INTEGER"
+   dicADsType.Add 8, "OCTET_STRING"
+   dicADsType.Add 9, "UTC_TIME"
+   dicADsType.Add 10, "LARGE_INTEGER"
+   dicADsType.Add 11, "PROV_SPECIFIC"
+   dicADsType.Add 12, "OBJECT_CLASS"
+   dicADsType.Add 13, "CASEIGNORE_LIST"
+   dicADsType.Add 14, "OCTET_LIST"
+   dicADsType.Add 15, "PATH"
+   dicADsType.Add 16, "POSTALADDRESS"
+   dicADsType.Add 17, "TIMESTAMP"
+   dicADsType.Add 18, "BACKLINK"
+   dicADsType.Add 19, "TYPEDNAME"
+   dicADsType.Add 20, "HOLD"
+   dicADsType.Add 21, "NETADDRESS"
+   dicADsType.Add 22, "REPLICAPOINTER"
+   dicADsType.Add 23, "FAXNUMBER"
+   dicADsType.Add 24, "EMAIL"
+   dicADsType.Add 25, "NT_SECURITY_DESCRIPTOR"
+   dicADsType.Add 26, "UNKNOWN"
+   dicADsType.Add 27, "DN_WITH_BINARY"
+   dicADsType.Add 28, "DN_WITH_STRING"
+
+   for intIndex = 0 To (objObject.PropertyCount - 1)
+      set objPropEntry = objObject.Item(intIndex)
+      for Each objPropValue In objPropEntry.Values
+         value = ""
+
+         if (dicADsType(objPropValue.ADsType) = "DN_STRING") then
+            value = objPropValue.DNString
+
+         elseIf (dicADsType(objPropValue.ADsType) = "CASE_EXACT_STRING") then
+            value = objPropValue.CaseExactString
+
+         elseIf (dicADsType(objPropValue.ADsType) = "CASE_IGNORE_STRING") then
+            value = objPropValue.CaseIgnoreString
+
+         elseIf (dicADsType(objPropValue.ADsType) = "PRINTABLE_STRING") then
+            value = objPropValue.PrintableString
+
+         elseIf (dicADsType(objPropValue.ADsType) = "NUMERIC_STRING") then
+            value = objPropValue.NumericString
+
+         elseIf (dicADsType(objPropValue.ADsType) = "BOOLEAN") then
+            value = CStr(objPropValue.Boolean)
+
+         elseIf (dicADsType(objPropValue.ADsType) = "INTEGER") then
+            value = objPropValue.Integer
+
+         elseIf (dicADsType(objPropValue.ADsType) = "LARGE_INTEGER") then
+            set objLargeInt = objPropValue.LargeInteger
+            value = objLargeInt.HighPart * 2^32 + objLargeInt.LowPart
+
+         elseIf (dicADsType(objPropValue.ADsType) = "UTC_TIME") then
+            value = objPropValue.UTCTime
+
+         else
+            value = "<" & dicADsType.Item(objPropEntry.ADsType) & ">" 
+
+
+         end if
+         WScript.Echo objPropEntry.Name & " : " & value
+      next
+   next
+End Function
+    
+    
+====================================
+$obj = [ADSI]("LDAP://" + "<Object DN>")
+$colObjProps = $obj | get-member
+foreach ($prop in $colObjProps) { 
+  write-host $prop.Name -nonewline
+  write-host ": " -nonewline
+  write-host $obj.($prop.Name) 
+}
+    
+    
+====================================
+> enumprop /ATTR:name,whenCreated "LDAP://<ObjectDN>"
+    
+    
+====================================
+> adfind -b <Search Base> -s <Scope> -f <Search Filter> -c
+    
+    
+====================================
+> adfind -default -f "(&(objectclass=user)(objectcategory=person))" -c
+>
+> AdFind V01.27.00cpp Joe Richards (joe@joeware.net) November 2005
+>
+> Using server: 2k3-sp1-r2.adatum.com:389
+> Directory: Windows Server 2003
+> Base DN: DC=adatum,DC=com
+>
+> 5 Objects returned
+    
+    
+====================================
+' This code lists the number of objects
+' returned based on the specified criteria.
+' ------ SCRIPT CONFIGURATION ------
+strBase    =  "<LDAP://<BaseDN>>;" ' BaseDN should be the search base
+strFilter  = "<Filter>;"           ' Valid LDAP search filter
+strAttrs   = "<AttrList>;"         ' Comma-separated list
+strScope   = "<Scope>"             ' Should be one of Subtree, Onelevel, or Base
+' ------ END CONFIGURATION ---------
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+Wscript.Echo(objRS.RecordCount & " objects returned.")
+    
+    
+====================================
+$col = Get-QADObject -ldapfilter '(&(objectcategory=person)(objectclass=user))'
+$col.Count
+    
+    
+====================================
+objConn.Properties("Page size") = <PageSize>
+    
+    
+====================================
+(Get-QADObject -ldapfilter '(&(objectcategory=person)(objectclass=user))').Count
+    
+    
+====================================
+$strCategory = "computer"
+$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objDomain
+$objSearcher.Filter = ("(objectCategory=$strCategory)")
+$objSearch.tombstone = $true
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+<GUID=758A39F4A44A0C48A16016457C1AE9E9>
+    
+    
+====================================
+> adfind -b "<GUID=ObjectGUID>"
+    
+    
+====================================
+' This code illustrates how to bind to an object GUID.
+' ------ SCRIPT CONFIGURATION ------
+strDomain = "<DomainDNSName>" ' e.g. apac.adatum.com
+strGUID = "<GUID>" ' e.g. "aa312825768811d1aded00c04fd8d5cd"
+                          ' for the default Computers container
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strDomain & "/RootDSE")
+set objContainer = GetObject("LDAP://<GUID=" & _
+                             strGUID & "," & _
+                             objRootDSE.Get("defaultNamingContext") & ">" )
+WScript.Echo objContainer.Get("distinguishedName")
+    
+    
+====================================
+$obj = [System.DirectoryServices.DirectoryEntry] "LDAP://<GUID=<ObjectGUID>>"
+    
+    
+====================================
+<WKGUID=<WKGUID>,<DomainDN>>
+    
+    
+====================================
+> adfind -default -s base wellknownObjects
+    
+    
+====================================
+> adfind -b "<WKGUID=<WKGUID>,<DomainDN>>" -s base -dn
+    
+    
+====================================
+' This code illustrates how to bind to the default computer's container.
+' ------ SCRIPT CONFIGURATION ------
+strDomain = "<DomainDNSName>" ' e.g. apac.adatum.com
+strWKGUID = "<WKGUID>" ' e.g. "aa312825768811d1aded00c04fd8d5cd"
+                    ' for the default Computer's container
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strDomain & "/RootDSE")
+set objCompContainer = GetObject("LDAP://<WKGUID=" & _
+                             strWKGUID & "," & _
+                             objRootDSE.Get("defaultNamingContext") & ">" )
+WScript.Echo objCompContainer.Get("distinguishedName")
+    
+    
+====================================
+$obj = [ADSI] "LDAP://<WKGUID=<Well-Known GUID>,<Domain DN>>"
+    
+    
+====================================
+> dsquery * <BaseDN> -scope <Scope> -filter "<Filter>" -attr "<AttrList>"
+    
+    
+====================================
+> dsquery * dc=adatum,dc=com -filter
+"(&(objectclass=user)(objectcategory=person))" -attr sAMAccountName
+    
+    
+====================================
+> adfind -b <BaseDN> -s <Scope> -f <Filter> <Attributes>
+    
+    
+====================================
+> adfind -b dc=adatum,dc=com -f "(&(objectclass=user)(objectcategory=person))"
+sAMAccountName
+    
+    
+====================================
+' This code searches
+' for objects based on the specified criteria.
+' ------ SCRIPT CONFIGURATION ------
+strBase   = "<LDAP://<BaseDN>>;" ' BaseDN should be the search base
+strFilter = "<Filter>;"                ' Valid LDAP search filter
+strAttrs  = "<AttrList>;"              ' Comma-separated list
+strScope  = "<Scope>"                  ' Should be one of Subtree, Onelevel, or Base
+' ------ END CONFIGURATION --------
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+While Not objRS.EOF
+    Wscript.Echo objRS.Fields(0).Value
+    objRS.MoveNext
+Wend
+WScript.Echo("Search complete!")
+    
+    
+====================================
+get-QADObject -ldapfilter '(&(objectcategory=person)(objectclass=user))'
+    
+    
+====================================
+$strCategory = "computer"
+$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objDomain
+$objSearcher.Filter = ("(objectCategory=$strCategory)")
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+    
+    
+====================================
+> dsquery * <BaseDN> -gc -scope <Scope> -filter "<Filter>" -attr "<AttrList>"
+    
+    
+====================================
+> adfind -gc -b <BaseDN> -s <Scope> -f <Filter> <Attributes>
+    
+    
+====================================
+' This code searches the global catalog
+' ------ SCRIPT CONFIGURATION ------
+strBase    = "<GC://<BaseDN>>;"
+strFilter  = "<Filter>;"
+strAttrs   = "<AttrList>;"
+strScope   = "<Scope>"
+' ------ END CONFIGURATION ---------
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+while Not objRS.EOF
+    Wscript.Echo objRS.Fields(0).Value
+    objRS.MoveNext
+wend
+    
+    
+====================================
+get-QADService -UseGlobalCatalog
+    
+    
+====================================
+$strCategory = "computer"
+$objGC = [System.DirectoryServices.DirectoryEntry] "GC://<DomainDN>"
+$objGCSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objGCSearcher.SearchRoot = $objGC
+$objSearcher.Filter = ("(objectCategory=$strCategory)")
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+strBase = "<GC://<BaseDN>>;"
+    
+    
+====================================
+> dsquery * <BaseDN> -limit 0 -scope <Scope> -filter "<Filter>" -attr "<AttrList>"
+    
+    
+====================================
+' This code enables paged searching
+' ------ SCRIPT CONFIGURATION ------
+strBase   = "<LDAP://<BaseDN>>;"
+strFilter = "<Filter>;"
+strAttrs  = "<AttrList>;"
+strScope  = "<Scope>"
+' ------ END CONFIGURATION ---------
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objComm = CreateObject("ADODB.Command")
+objComm.ActiveConnection = objConn
+objComm.Properties("Page Size") = 1000
+objComm.CommandText = strBase & strFilter & strAttrs & strScope
+set objRS = objComm.Execute
+objRS.MoveFirst
+while Not objRS.EOF
+    Wscript.Echo objRS.Fields(0).Value
+    objRS.MoveNext
+wend
+    
+    
+====================================
+$strCategory = "computer"
+$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objDomain
+$objSearcher.PageSize = 1000
+$objSearcher.Filter = ("(objectCategory=$strCategory)")
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+adfind -b cn=somegroup,cn=users,dc=domain,dc=group -asq member -f objectclass=user
+samaccountname
+    
+    
+====================================
+Get-QADObject -SearchRoot <ObjectDN> -AttributeScopeQuery '<Attribute>'
+    
+    
+====================================
+$group  = New-Object System.DirectoryServices.DirectoryEntry(
+    "LDAP://CN=Domain Admins,CN=Users,<DomainDN>")
+$source = New-Object System.DirectoryServices.DirectorySearcher
+
+$source.SearchRoot  = $group
+$source.SearchScope = [System.DirectoryServices.SearchScope]::Base
+$source.Filter      = "(objectClass=*)"
+
+$source.PropertiesToLoad.Add("member")
+$source.PropertiesToLoad.Add("sAMAccountName")
+
+$source.AttributeScopeQuery = "member"
+
+$results = $source.FindAll()
+    
+    
+====================================
+(&(objectclass=user)(department=Sales))
+    
+    
+====================================
+(&(objectCategory=group)(groupType:1.2.840.113556.1.4.804:=8))
+    
+    
+====================================
+> dsquery * dc=adatum,dc=com -scope subtree -attr "name" -filter
+"(&(objectclass=group)(objectCategory=group)
+(groupType:1.2.840.113556.1.4.804:=8) )"
+    
+    
+====================================
+> dsquery * dc=adatum,dc=com -attr name -scope subtree -filter
+"(&(objectclass=user)(objectcategory=person)(useraccountcontrol:1.2.840.113556.1.4.
+803:=2))"
+    
+    
+====================================
+> adfind -default -bit -f useraccountcontrol:AND:=2
+    
+    
+====================================
+> adfind -default -bit -f groupType:AND:=8
+    
+    
+====================================
+' The following query finds all disabled user accounts in the
+' adatum.com domain
+strBase   = "<LDAP://dc=adatum,dc=com>;"
+strFilter = "(&(objectclass=user)(objectcategory=person)" & _
+            "(useraccountcontrol:1.2.840.113556.1.4.803:=2));"
+strAttrs  = "name;"
+strScope  = "subtree"
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+while Not objRS.EOF
+    Wscript.Echo objRS.Fields(0).Value
+    objRS.MoveNext
+wend
+    
+    
+====================================
+$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objDomain
+$objSearcher.Filter =
+("(&(objectclass=user)(objectcategory=person)(useraccountcontrol:1.2.840.113556.1.4
+.803:=2))")
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+(userAccountControl:1.2.840.113556.1.4.803:=514)
+    
+    
+====================================
+(useraccountcontrol:1.2.840.113556.1.4.804:=514)
+    
+    
+====================================
+(|(useraccountcontrol:1.2.840.113556.1.4.804:=2)
+(useraccountcontrol:1.2.840.113556.
+1.4.804:=512))
+    
+    
+====================================
+(useraccountcontrol:1.2.840.113556.1.4.803:=514)
+    
+    
+====================================
+(&(useraccountcontrol:1.2.840.113556.1.4.803:=2)
+(useraccountcontrol:1.2.840.113556.1.4.803:=512))
+    
+    
+====================================
+(useraccountcontrol:1.2.840.113556.1.4.803:=512)
+
+(useraccountcontrol:1.2.840.113556.1.4.804:=512)
+    
+    
+====================================
+dn: cn=jsmith,cn=users,dc=adatum,dc=com
+changetype: add
+objectClass: user
+samaccountname: jsmith
+    
+    
+====================================
+> ldifde -v -i -f create_object.ldf
+    
+    
+====================================
+> admod -b "cn=Joe Smith,cn=users,dc=adatum,dc=com"
+
+objectclass::user samaccountname::jsmith -add
+    
+    
+====================================
+set objUsersCont = GetObject("LDAP://cn=users,dc=adatum,dc=com")
+set objUser = objUsersCont.Create("user", "CN=jsmith")
+objUser.Put "sAMAccountName", "jsmith" ' mandatory in Windows 2000
+objUser.SetInfo
+    
+    
+====================================
+new-QADObject -ParentContainer "ou=Workstations,dc=adatum,dc=com" -type 'computer'
+-name 'comp1' -ObjectAttributes @{samAccountName='comp1';description='New Vista
+Workstation'}
+    
+    
+====================================
+ $parentOU = [System.DirectoryServices.DirectoryEntry]
+"LDAP://ou=Workstations,dc=adatum,dc=com"
+ $newWS = $parentOU.Create("computer","test1")
+ $newWS.put("samaccountName,"test1")
+ $newWS.put("description","New Vista Workstation")
+ $newWS.SetInfo()
+    
+    
+====================================
+dn: cn=jsmith,cn=users,dc=adatum,dc=com
+changetype: modify
+replace: givenName
+givenName: Jim
+-
+    
+    
+====================================
+> ldifde -v -i -f modify_object.ldf
+    
+    
+====================================
+> admod -b <ObjectDN> <attribute>:<operation>:<value>
+    
+    
+====================================
+> admod -b cn="Joe Smith,cn=Users,dc=adatum,dc=com"
+      description::Consultant
+    
+    
+====================================
+strObjectDN = "cn=jsmith,cn=users,dc=adatum,dc=com"
+set objUser = GetObject("LDAP://" & strObjectDN)
+objUser.Put "sn", "Smith"
+objUser.SetInfo
+    
+    
+====================================
+set-QADObject -Identity <ObjectDN> @{attribute1=<Value>;attribute2=<Value>}
+    
+    
+====================================
+$objWS = [System.DirectoryServices.DirectoryEntry] "LDAP://<ObjectDN>"
+$objWS.put("description","New Workstation Description")
+$objWS.SetInfo()
+    
+    
+====================================
+> admod -b <ObjectDN> <attribute>:<operation>:<value>
+    
+    
+====================================
+strObjectDN = "cn=jsmith,cn=users,dc=adatum,dc=com"
+
+const ADS_PROPERTY_CLEAR  = 1
+const ADS_PROPERTY_UPDATE = 2
+const ADS_PROPERTY_APPEND = 3
+const ADS_PROPERTY_DELETE = 4
+
+set objUser = GetObject("LDAP://" & strObjectDN)
+
+' Add/Append two values
+objUser.PutEx ADS_PROPERTY_APPEND, "otherTelephoneNumber", _
+              Array("555-1212", "555-1213")
+objUser.SetInfo
+' Now otherTelephoneNumber = 555-1212, 555-1213
+
+' Delete one of the values
+objUser.PutEx ADS_PROPERTY_DELETE, "otherTelephoneNumber", Array("555-1213")
+objUser.SetInfo
+' Now otherTelephoneNumber = 555-1212
+
+' Change values
+objUser.PutEx ADS_PROPERTY_UPDATE, "otherTelephoneNumber", Array("555-1214")
+objUser.SetInfo
+' Now otherTelephoneNumber = 555-1214
+
+' Clear all values
+objUser.PutEx ADS_PROPERTY_CLEAR, "otherTelephoneNumber", vbNullString
+objUser.SetInfo
+' Now otherTelephoneNumber = <empty>
+    
+    
+====================================
+$obj = [System.DirectoryServices.DirectoryEntry] "LDAP://<ObjectDN>"
+$obj.PutEx(1, "description", 0)
+$obj.SetInfo()
+    
+    
+====================================
+[Collections.DictionaryEntry] $de = New-Object Collections.DictionaryEntry 
+-argumentList Append, @('<Value1>',<Value2>')
+set-QADOject -Identity <Object DN> -ObjectAttributes @{siteLink=$de}
+    
+    
+====================================
+' This code safely modifies a bit flag attribute
+' ------ SCRIPT CONFIGURATION ------
+strObject = "<ObjectDN>" ' e.g. cn=jsmith,cn=users,dc=adatum,dc=com
+strAttr = "<AttrName>" ' e.g. adatum-UserProperties
+boolEnableBit = <TRUEorFALSE> ' e.g. FALSE
+intBit = <BitValue> ' e.g. 16
+' ------ END CONFIGURATION --------
+
+set objObject = GetObject("LDAP://" & strObject)
+intBitsOrig = objObject.Get(strAttr)
+intBitsCalc = CalcBit(intBitsOrig, intBit, boolEnableBit)
+
+if intBitsOrig <> intBitsCalc then
+   objObject.Put strAttr, intBitsCalc
+   objObject.SetInfo
+   WScript.Echo "Changed " & strAttr & " from " & intBitsOrig & " to " & intBitsCalc
+else
+   WScript.Echo "Did not need to change " & strAttr & " (" & intBitsOrig & ")"
+end if
+
+Function CalcBit(intValue, intBit, boolEnable)
+
+   CalcBit = intValue
+
+   if boolEnable = TRUE then
+      CalcBit = intValue Or intBit
+   else
+      if intValue And intBit then
+         CalcBit = intValue Xor intBit
+      end if
+   end if
+
+End Function
+    
+    
+====================================
+$objUser = [ADSI] "LDAP://cn=testuser,cn=users,dc=adatum,dc=com"
+$newUAC = ($objUser.userAccountControl.ToString()) -bor 2
+$objUser.Put("userAccountControl", $newValue)
+$objUser.SetInfo()
+    
+    
+====================================
+intBitsCalc = CalcBit(intBitsOrig, 2, TRUE)
+    
+    
+====================================
+dn: cn=jsmith,cn=users,dc=adatum,dc=com
+changetype: modify
+add: objectClass
+objectClass: adatum-SalesUser
+-
+    
+    
+====================================
+> ldifde -v -i -f dynamically_link_class.ldf
+    
+    
+====================================
+> admod -b <ObjectDN> objectClass:+:<Dynamic Object Class>
+    
+    
+====================================
+const ADS_PROPERTY_APPEND = 3
+set objUser = GetObject("LDAP://cn=jsmith,cn=users,dc=adatum,dc=com")
+objUser.PutEx ADS_PROPERTY_APPEND,"objectClass",Array("adatum-SalesUser")
+objUser.SetInfo
+    
+    
+====================================
+set-variable -name ADS_PROPERTY_APPEND -value 3 -option constant
+$objUser = [ADSI] "LDAP://cn=testuser,cn=users,dc=adatum=,dc=com"
+$objUser.PutEx(ADS_PROPERTY_APPEND, "objectClass", @("adatum-SalesUser"))
+$objUser.SetInfo()
+    
+    
+====================================
+dn: cn=jsmith,cn=users,dc=adatum,dc=com
+changetype: add
+objectClass: user
+objectClass: dynamicObject
+entryTTL: 1800
+sAMAccountName: jsmith
+    
+    
+====================================
+> ldifde -v -i -f create_dynamic_object.ldf
+    
+    
+====================================
+' This code creates a
+' dynamic user object with a TTL of 30 minutes (1800 secs)
+set objUsersCont = GetObject("LDAP://cn=users,dc=adatum,dc=com")
+set objUser = objUsersCont.Create("user", "CN=jsmith")
+objUser.Put "objectClass", "dynamicObject"
+objUser.Put "entryTTL", 1800
+objUser.Put "sAMAccountName", "jsmith" ' mandatory attribute
+objUser.SetInfo
+    
+    
+====================================
+set-variable -name ADS_PROPERTY_APPEND -value 3 -option constant
+$parentOU = [System.DirectoryServices.DirectoryEntry]
+"LDAP://ou=adatumUsers,dc=adatum,dc=com"
+$objUser = $parentOU.Create("user","TestUser1")
+$objUser.put("samaccountName,"testuser1")
+$objUser.put("description","New Vista Workstation")
+$objUser.Put("objectClass", "dynamicObject")
+$objUser.Put("entryTTL", "1800)
+$objUser.Put("sAMAccountName', "jsmith")
+$objUser.SetInfo()
+    
+    
+====================================
+dn: cn=jsmith,cn=users,dc=adatum,dc=com
+changetype: modify
+replace: entryTTL
+entryTTL: 1800
+-
+    
+    
+====================================
+> ldifde -v -i -f refresh_dynamic_object.ldf
+    
+    
+====================================
+> admod -b <ObjectDN> entryTTL::<TTL in Seconds>
+    
+    
+====================================
+set objUser = GetObject("LDAP://cn=jsmith,cn=users,dc=adatum,dc=com")
+objUser.Put "entryTTL", "1800"
+objUser.SetInfo
+    
+    
+====================================
+set-QADObject -Identity <ObjectDN> @{entryTTL=1800}
+    
+    
+====================================
+$objDyn = [System.DirectoryServices.DirectoryEntry] "LDAP://<ObjectDN>"
+$objDyn.put("entryTTL","1800")
+$objDyn.SetInfo()
+    
+    
+====================================
+> ntdsutil "config settings" connections "connect to server <DomainControllerName>"
+q "show values" "set DynamicObjectDefaultTTL to 172800" "commit changes"
+"show values" q q
+    
+    
+====================================
+' This code modifies the
+' default TTL setting for dynamic objects in a forest
+' ------ SCRIPT CONFIGURATION ------
+strNewValue = 172800
+
+' Could be DynamicObjectMinTTL instead if you wanted to set that instead
+strTTLSetting = "DynamicObjectDefaultTTL"
+' ------ END CONFIGURATION --------
+
+const ADS_PROPERTY_APPEND = 3
+const ADS_PROPERTY_DELETE = 4
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objDS = GetObject("LDAP://CN=Directory Service,CN=Windows NT," & _
+                      "CN=Services,CN=Configuration," & _
+                      objRootDSE.Get("rootDomainNamingContext"))
+for each strVal in objDS.Get("msDS-Other-Settings")
+   Set objRegEx = New RegExp
+   objRegEx.Pattern = strTTLSetting & "="
+   objRegEx.IgnoreCase = True
+   Set colMatches = objRegEx.Execute(strVal)
+   For Each objMatch in colMatches
+      Wscript.Echo "Deleting " & strVal
+      objDS.PutEx ADS_PROPERTY_DELETE, "msDS-Other-Settings", Array(strVal)
+      objDS.SetInfo
+   Next
+Next
+
+Wscript.Echo "Setting " & strTTLSetting & "=" & strNewValue
+objDS.PutEx ADS_PROPERTY_APPEND, _
+            "msDS-Other-Settings", _
+            Array(strTTLSetting & "=" & strNewValue)
+objDS.SetInfo
+    
+    
+====================================
+> dsmove "<ObjectDN>" -newparent "<NewParentDN>"
+    
+    
+====================================
+> admod -b <ObjectDN> -move <NewParentDN>
+    
+    
+====================================
+' This code moves an object from one location to another in the same domain.
+' ------ SCRIPT CONFIGURATION ------
+strNewParentDN = "LDAP://<NewParentDN>"
+strObjectDN    = "LDAP://cn=jsmith,<OldParentDN>"
+strObjectRDN   = "cn=jsmith"
+' ------ END CONFIGURATION --------
+
+set objCont = GetObject(strNewParentDN)
+objCont.MoveHere strObjectDN, strObjectRDN
+    
+    
+====================================
+move-QADObject -identity <ObjectDN> -newparent <NewParentDN>
+    
+    
+====================================
+$obj = [ADSI] "LDAP://<Object DN>"
+$newParent = [ADSI] "LDAP://<New Parent DN>"
+$obj.psbase.MoveTo($newParent)
+    
+    
+====================================
+> ADMT [ USER | GROUP | COMPUTER | SECURITY | SERVICE |
+       REPORT | KEY | PASSWORD | CONFIG | TASK ] <Options>
+    
+    
+====================================
+> ADMT COMPUTER /N <ComputerName> /SD:<Source Domain> /TD:<Target Domain>
+/TO:<Target OU>
+    
+    
+====================================
+> movetree /start /s SourceDC /d TargetDC /sdn SourceDN /ddn TargetDN
+    
+    
+====================================
+> movetree /start /s dc-amer1 /d dc-emea1\
+  /ddn cn=jsmith,cn=users,dc=amer,dc=adatum,dc=com\
+  /sdn cn=jsmith,cn=users,dc=emea,dc=adatum,dc=com\
+    
+    
+====================================
+set objObject = GetObject("LDAP://TargetDC/TargetParentDN")
+objObject.MoveHere "LDAP://SourceDC/SourceDN", vbNullString
+    
+    
+====================================
+set objObject = GetObject( _
+   "LDAP://dc-amer1/cn=users,dc=amer,dc=adatum,dc=com")
+objObject.MoveHere _
+   "LDAP://dc-emea1/cn=jsmith,cn=users,dc=emea,dc=adatum,dc=com", _
+   vbNullString
+    
+    
+====================================
+dn: cn=othercorp.com,cn=partitions,cn=configuration,dc=adatum,dc=com
+changetype: add
+objectClass: crossRef
+cn: othercorp.com
+nCName: dc=othercorp,dc=com
+dnsRoot: dc1.othercorp.com
+    
+    
+====================================
+> ldifde -v -i -f create_crossref.ldf
+    
+    
+====================================
+> admod -config -rb cn=othercorp.com,cn=partitions
+objectClass::crossRef cn::othercorp.com nCName::dc=othercorp,dc=com
+dnsRoot::dc1.othercorp.com -add
+    
+    
+====================================
+set objPartitions =
+GetObject("LDAP://cn=partitions,cn=configuration,dc=adatum,dc=com")
+set objCrossRef = objPartitions.Create("crossRef", "CN=othercorp.com")
+objCrossRef.Put "cn", "othercorp.com" ' mandatory attribute
+objCrossRef.Put "nCName", "dc=othercorp,dc=com" ' mandatory attribute
+objCrossRef.Put "dnsRoot", "dc1.othercorp.com" ' mandatory attribute
+objCrossRef.SetInfo
+    
+    
+====================================
+ new-QADObject -ParentContainer "cn=partitions,cn=configuration,<Forest Root DN>"
+-type 'crossref' -name 'othercorp.com' -ObjectAttributes
+@{cn='othercorp.com';nCName='dc=othercorp,dc=com';'dnsRoot'='dc1.othercorp.com'}
+    
+    
+====================================
+$parentOU = [System.DirectoryServices.DirectoryEntry]
+"LDAP://cn=Partitions,cn=Configuration,<Forest Root DN>"
+$newCrossRef = $parentOU.Create("crossRef","othercorp.com")
+$newCrossRef.put("cn,"cn=othercorp.com")
+$newCrossRef.put("nCName","dc=othercorp,dc=com")
+$newCrossRef.put("dnsRoot","dc1.othercorp.com")
+$newCrossRef.SetInfo()
+    
+    
+====================================
+> dsmove "<ObjectDN>" -newname "<NewName>"
+    
+    
+====================================
+> admod -b "<ObjectDN>" -rename "<NewName>"
+    
+    
+====================================
+' This code renames an object and leaves it in the same location.
+' ------ SCRIPT CONFIGURATION ------
+strCurrentParentDN = "<CurrentParentDN>"
+strObjectOldName = "cn=<OldName>"
+strObjectNewName = "cn=<NewName>"
+' ------ END CONFIGURATION --------
+
+set objCont = GetObject("LDAP://" & strCurrentParentDN)
+objCont.MoveHere "LDAP://" & strObjectOldName & "," & _
+                 strCurrentParentDN, strObjectNewName
+    
+    
+====================================
+ Rename-QADObject -identity '<Object DN>' -NewName '<New Value of 'name'
+attribute>'
+    
+    
+====================================
+$obj = [ADSI] "LDAP://<Object DN>"
+$newName = "<New Value of 'name' Attribute>"
+$obj.psbase.Rename($newName)
+    
+    
+====================================
+> dsrm "<ObjectDN>"
+    
+    
+====================================
+> admod -b "<ObjectDN>" -del
+    
+    
+====================================
+strObjectDN = "<ObjectDN>"
+set objUser = GetObject("LDAP://" & strObjectDN)
+objUser.DeleteObject(0)
+    
+    
+====================================
+remove-QADObject -identity <Object DN>
+    
+    
+====================================
+$obj = [ADSI] "LDAP://<Object DN>"
+$obj.DeleteObject(0)
+    
+    
+====================================
+set objCont = GetObject("LDAP://ou=Sales,dc=adatum,dc=com")
+objCont.Delete "user", "cn=rallen"
+    
+    
+====================================
+> dsrm "<ObjectDN>" -subtree
+    
+    
+====================================
+> admod -b "<ObjectDN>" -del -treedelete
+    
+    
+====================================
+remove-QADObject -identity <Object DN> -DeleteTree
+    
+    
+====================================
+$obj = [System.DirectoryServices.DirectoryEntry] "LDAP://<Object DN>"
+$obj.psbase.DeleteTree()
+    
+    
+====================================
+> dsquery * "<ObjectDN>" -attr name createTimestamp modifyTimestamp
+    
+    
+====================================
+> adfind -default -rb cn=Users -f "cn=Joe Smith"
+createTimestamp modifyTimestamp
+    
+    
+====================================
+' This code prints the created and last modified timestamp
+' for the specified object.
+' ------ SCRIPT CONFIGURATION ------
+strObjectDN = "<ObjectDN>"
+' ------ END CONFIGURATION --------
+
+set objEntry = GetObject("LDAP://" & strObjectDN)
+Wscript.Echo "Object Name: " & objEntry.Get("name")
+Wscript.Echo " Created: " & objEntry.Get("createTimestamp")
+Wscript.Echo " Changed: " & objEntry.Get("modifyTimestamp")
+    
+    
+====================================
+$obj1 = get-QADObject 'cn=administrator,cn=users,dc=adatum,dc=com'
+$obj1.DirectoryEntry.whenChanged
+$obj2 = [System.DirectoryServices.DirectoryEntry] "LDAP://<ObjectDN>"
+$obj2.whenCreated
+    
+    
+====================================
+> ntdsutil "ldap pol" conn "con to server <DomainControllerName>" q "show values"
+    
+    
+====================================
+> ntdsutil "ldap pol" conn "con to server <DomainControllerName>" q
+ldap policy: set MaxPageSize to 2000
+ldap policy: Commit Changes
+    
+    
+====================================
+' This code modifies a setting of the default
+' query policy for a forest
+' ------ SCRIPT CONFIGURATION ------
+pol_attr  = "MaxPageSize" ' Set to the name of the setting you want to modify
+new_value = 1000          ' Set to the value of the setting you want modify
+' ------ END CONFIGURATION ---------
+Const ADS_PROPERTY_APPEND = 3
+Const ADS_PROPERTY_DELETE = 4
+
+set rootDSE = GetObject("LDAP://RootDSE")
+set ldapPol = GetObject("LDAP://cn=Default Query Policy,cn=Query-Policies," & _
+                "cn=Directory Service,cn=Windows NT,cn=Services," & _
+                rootDSE.Get("configurationNamingContext") )
+set regex = new regexp
+regex.IgnoreCase = true
+regex.Pattern = pol_attr & "="
+for Each prop In ldapPol.GetEx("ldapAdminLimits")
+   if regex.Test(prop) then
+      if prop = pol_attr & "=" & new_value then
+         WScript.Echo pol_attr & " already equal to " & new_value
+      else
+         ldapPol.PutEx ADS_PROPERTY_APPEND, "lDAPAdminLimits", _
+                    Array( pol_attr & "=" & new_value )
+         ldapPol.SetInfo
+         ldapPol.PutEx ADS_PROPERTY_DELETE, "lDAPAdminLimits", Array(prop)
+         ldapPol.SetInfo
+         WScript.Echo "Set " & pol_attr & " to " & new_value
+      end if
+      Exit For
+   end if
+next
+    
+    
+====================================
+> ldifde -f output.ldf -l <AttrList> -p <Scope> -r "<Filter>" -d "<BaseDN>"
+    
+    
+====================================
+dn: cn=jsmith,cn=users,dc=adatum,dc=com
+changetype: add
+objectClass: user
+samaccountname: jsmith
+sn: JSmith
+
+dn: cn=jsmith,cn=users,dc=adatum,dc=com
+changetype: modify
+add: givenName
+givenName: Jim
+-
+replace: sn
+sn: Smith
+-
+
+dn: cn=jsmith,cn=users,dc=adatum,dc=com
+changetype: delete
+    
+    
+====================================
+> ldifde -i -f input.ldf
+    
+    
+====================================
+> csvde -f output.csv -l <AttrList> -p <Scope> -r "<Filter>" -d "<BaseDN>"
+    
+    
+====================================
+> adfind -b <SearchBase> -f <Filter> -csv <Attr1> <Attr2> <Attr3>
+    
+    
+====================================
+ get-QADObject -identity <ObjectDN> -IncludeProperty <Property1> <Property2> ... |
+Select <Property1> <Property2> ... | export-csv adobjects.csv
+
+$obj = [ADSI]"LDAP://<Object DN>"
+$record = ""
+foreach ($property in ($obj | get-member)) { $record += $property.name + "|" }
+$record | out-file -force adobjects.csv
+$record = ""
+foreach ($property in ($obj | get-member)) { $record += $obj.($property.name) + "|" }
+$record | out-file -append adobjects.csv
+    
+    
+====================================
+DN,objectClass,cn,sn,userAccountControl,sAMAccountName,userPrincipalName
+    
+    
+====================================
+DN,objectClass,sn,userAccountControl,sAMAccountName,userPrincipalName
+"cn=jim,cn=users,dc=adatum,dc=com",user,Smith,512,jim,jim@adatum.com
+"cn=john,cn=users,dc=adatum,dc=com",user,,512,john,john@adatum.com
+    
+    
+====================================
+> csvde -i -f input.csv
+    
+    
+==================

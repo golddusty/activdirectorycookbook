@@ -1,0 +1,641 @@
+chapter: Active Directory Application Mode and Active Directory
+  Lightweight Directory Service
+==================
+> servermanagercmd -install adlds
+    
+    
+====================================
+> <ADAM Installer File> /q
+    
+    
+====================================
+[ADAMInstall]
+
+; Install a unique ADAM instance
+InstallType=Unique
+
+; Specify the name of the new instance
+InstanceName=IntranetApplication
+
+; Specify the ports to be used by LDAP.
+LocalLDAPPortToListenOn=50000
+LocalSSLPortToListenOn=50001
+
+; Create a new application partition
+NewApplicationPartitionToCreate="cn=IntranetApplication,dc=adatum,dc=com"
+
+; The following line specifies the directory to use for ADAM data files.
+DataFilesPath=C:\Program Files\Microsoft ADAM\IntranetApplication\data
+; The following line specifies the directory to use for ADAM log files.
+LogFilesPath=D:\ADAM Log Files\IntranetApplication\logs
+
+; The following line specifies the .ldf files to import into the ADAM schema.
+ImportLDIFFiles="ms-inetorgperson.ldf" "ms-user.ldf"
+    
+    
+====================================
+> adaminstall.exe /answer:<driveletter>:\<pathname>\<answerfile.txt>
+    
+    
+====================================
+[ADAMInstall]
+
+[ADAMInstall]
+; Install a replica of an existing ADAM instance.
+InstallType=Replica
+; Specify the name of the new replica.
+InstanceName=IntranetApplication
+; Specify the ports used for LDAP and SSL.
+LocalLDAPPortToListenOn=50000
+LocalSSLPortToListenOn=50001
+; The following line specifies the directory to use for
+; ADAM data files.
+DataFilesPath=C:\Program Files\Microsoft ADAM\IntranetApplication\data
+; The following line specifies the directory to use for ADAM log files.
+LogFilesPath=D:\ADAM Log Files\IntranetApplication\logs
+; Specify the name of the a computer hosting an existing replica
+SourceServer=servername
+SourceLDAPPort=389
+    
+    
+====================================
+> adaminstall.exe /answer:<driveletter>:\<pathname>\<answerfile.txt>
+    
+    
+====================================
+> net stop <instance_name>
+    
+    
+====================================
+> net start <instance_name>
+    
+    
+====================================
+' The following code will stop or start an ADAM or AD LDS instance
+'---------------- SCRIPT CONFIGURATION ----------------
+strComputer = "."
+strInstanceName = "<ADAM/AD LDS Instance>" ' ie "ADAM_IntranetApplication"
+'-------------------------------------------------------
+Set objWMIService = GetObject("winmgmts:" _
+    & "{impersonationLevel=impersonate}!\\" & strComputer & "\root\cimv2")
+Set colServiceList = objWMIService.ExecQuery _
+    ("Select * from Win32_Service where Name='" & strInstanceName & "'")
+
+For Each objService in colServiceList
+    errReturn = objService.StartService() ' change this method name to
+                                          ' .StopService() to stop the
+                                          ' ADAM instance.
+
+Next
+    
+    
+====================================
+Start-Service "<ADAM/AD LDS Instance>"
+Stop-Service "<ADAM/AD LDS Instance>"
+    
+    
+====================================
+> sc \\<servername> config <servicename> displayname = "<display name>"
+    
+    
+====================================
+> dsdbutil
+    > activate instance <instancename>
+    > LDAP port <port>
+    > SSL port <port>
+> quit
+    
+    
+====================================
+> dsdbutil
+    
+    
+====================================
+> list instances
+    
+    
+====================================
+' The following code will list all instances whose name begins with
+' "ADAM_" on the local computer
+'---------------- SCRIPT CONFIGURATION ----------------
+strComputer = "."
+'------------------------------------------------------
+Set objWMIService = GetObject("winmgmts:" _
+    & "{impersonationLevel=impersonate}!\\" & strComputer & "\root\cimv2")
+
+Set services = objWMIService.ExecQuery _
+    ("Select * from Win32_Service where Name Like '% ADAM_%'")
+
+If services.Count = 0 Then
+   Wscript.Echo "No ADAM instances found."
+Else
+   For Each service in services
+       Wscript.Echo service.Name & " -- " & service.State
+   Next
+End If
+    
+    
+====================================
+Get-Service -include "ADAM_*"
+    
+    
+====================================
+> ldifde -i -f <driveletter>:\<pathname>\contact.ldf -s <servername>:<portnumber> 
+-k -j . -c "CN=Schema,CN=Configuration" #schemaNamingContext
+    
+    
+====================================
+> dsmgmt
+    >  create nc <ApplicationPartitionDN> container <ComputerName>:<PortNumber>
+    >  quit
+> quit
+    
+    
+====================================
+> dsmgmt
+    >  delete nc <ApplicationPartitionDN>
+    >  quit
+> quit
+    
+    
+====================================
+' This code creates an application partition off of the
+' root of the default forest.
+' ------ SCRIPT CONFIGURATION ------
+strAppPart = "<AppPartitionName>" ' DN of the app partition to delete
+strServer = "<DomainControllerName>" ' DNS name of DC to host app partition
+strDescr = "<Description>" ' Descriptive text about the app partition
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strServer & "/RootDSE")
+set objLDAP = GetObject("LDAP://" & strServer & "/" & _
+                        objRootDSE.Get("rootDomainNamingContext") )
+set objAppPart = objLDAP.Create("domainDNS", "dc=" & strAppPart)
+objAppPart.Put "instancetype", 5
+objAppPart.Put "description", strDescr
+objAppPart.SetInfo
+WScript.Echo "Created application partition: " & strAppPart
+
+' This code deletes the specified application partition
+' ------ SCRIPT CONFIGURATION ------
+strAppPart = "<AppPartitionDN>" ' DN of the app partition to delete
+' ------ END CONFIGURATION ---------
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+strBase = "<LDAP://cn=Partitions," & _
+           objRootDSE.Get("ConfigurationNamingContext") & ">;"
+strFilter = "(&(objectcategory=crossRef)(nCName=" & _
+            strAppPart & "));"
+strAttrs = "cn,distinguishedName;"
+strScope = "onelevel"
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBase & strFilter & strAttrs & strScope)
+
+if objRS.RecordCount <> 1 then
+   WScript.Echo "Did not find a match for " & strAppPart
+else
+   objRS.MoveLast
+   set objAppPart = GetObject("LDAP://" & _
+                              objRS.Fields("distinguishedName").Value )
+
+   objAppPart.DeleteObject(0)
+   Wscript.Echo "Deleted " & objRS.Fields("distinguishedName").Value
+end if
+    
+    
+====================================
+> admod -h <ComputerName>:<PortNumber> -b <OU DN>
+objectClass::organizationalUnit -add
+    
+    
+====================================
+' The following code will add a new OU to an
+' ADAM or AD LDS instance
+'---------------- SCRIPT CONFIGURATION ----------------
+strComputerName = "<ComputerName>" ' Use "localhost" for the local computer
+strPort = "<PortNumber>"           ' the LDAP port number to connect to
+strAppPart = "<Application Partition DN>"
+'-------------------------------------------------------
+
+Set objDomain = GetObject("LDAP://" & strComputerName & _
+                          ":" & strPort & "/" & strAppPart)
+Set objOU = objDomain.Create("organizationalUnit", "ou=Finance")
+objOU.SetInfo
+
+' The following code will delete the OU you just created
+objOU.Delete "organizationalUnit", "ou=Finance"
+    
+    
+====================================
+new-QADObject -Service "<Computer Name>:<Port Number>" -parentcontainer '<Parent
+Container DN>' -type 'organizationalunit' -name 'Marketing' -ObjectAttributes
+@{description='Marketing OU'}
+    
+    
+====================================
+$objParentDN = [ADSI] "LDAP://<ComputerName>:<PortNumber>/<Parent Container DN>"
+$objNewOU = $objParentDN.Create("organizationalunit", "ou=Sales")
+$objNewOU.put("description", "Sales OU")
+$bjNewOU.setInfo()
+    
+    
+====================================
+> admod -h <ComputerName>:<PortNumber> -b <User DN>
+objectClass::user -add
+    
+    
+====================================
+' The following code will add a new OU to an ADAM instance
+'---------------- SCRIPT CONFIGURATION ----------------
+strComputerName = "<ComputerName>" ' Use "localhost" for the local computer
+strPort = "<PortNumber>"           ' the LDAP port number to connect to
+strAppPart = "<Application Partition DN>" ' ie "o=adatum,c=us"
+strUserDN = "<UserDN>"             ' ie "Joe Smith"
+strUPN = "<UserPrincipalName>"     ' ie "joe@adatum.com"
+'-------------------------------------------------------
+
+Set objOU = GetObject("LDAP://" & strComputerName & _ ":" & strPort & _
+                      "/" & strAppPart))
+Set objUser = objOU.Create("user", strUserDN)
+objUser.Put "displayName", strUserDN
+objUser.Put "userPrincipalName", strUPN
+objUser.SetInfo
+    
+    
+====================================
+new-QADUser -service "<Computer Name>:<Port Number>" -name '<User CN>' -
+parentContainer '<Application Partition DN/<Parent DN>' -UserPrincipalName '<User
+UPN>' -UserPassword "<Password>"
+    
+    
+====================================
+$objParent = [ADSI]
+"LDAP://<ComputerName>:<PortNumber>/<ApplicationPartitionDN>/<ParentDN>")
+$objUser = $objParent.Create("user", "cn=<User CN>")
+$objUser.Put("userPrincipalName", "<UserUPN>")
+$objUser.Put("displayName", "<UserFirstName> <UserLastName>")
+$objUser.SetInfo()
+$objUser.Put("userPassword", "<Password>"
+$objUser.SetInfo()
+    
+    
+====================================
+' The following code will set the password for an ADAM user
+'---------------- SCRIPT CONFIGURATION -----------------
+Const ADS_SECURE_AUTHENTICATION = 1
+Const ADS_USE_SSL               = 2
+
+Const ADS_USE_SIGNING           =  64
+Const ADS_USE_SEALING           = 128
+
+Const ADS_OPTION_PASSWORD_PORTNUMBER = 6
+Const ADS_OPTION_PASSWORD_METHOD     = 7
+
+Const ADS_PASSWORD_ENCODE_REQUIRE_SSL = 0
+Const ADS_PASSWORD_ENCODE_CLEAR       = 1
+
+strComputerName = "<ComputerName>" ' Use "localhost" for the local computer
+strPort = "<PortNumber>"           ' the LDAP port number to connect to
+intPort = CInt(strPort) 
+strUserDN = "<UserDN>"
+
+lngAuth = ADS_USE_SIGNING Or ADS_USE_SEALING Or _
+          ADS_SECURE_AUTHENTICATION
+'-------------------------------------------------------
+
+' Bind to the user whose password you want to change
+Set objUser = GetObject _
+    ("LDAP://" & strComputerName & ":" & strPort & "/" & strUserDN, _
+      vbNullString, vbNullString, lngAuth)
+
+' Set the password for the user.
+objUser.SetOption ADS_OPTION_PASSWORD_PORTNUMBER, intPort
+objUser.SetOption ADS_OPTION_PASSWORD_METHOD, _
+                      ADS_PASSWORD_ENCODE_CLEAR
+
+' In a production script, this should be read in as a script argument
+' rather than being embedded in clear-text
+' within the script itself
+objUser.SetPassword "
+ADAMComplexPassword1234"
+
+If Err.Number <>0 Then
+    WScript.Echo "Error:     Set password failed with error " _
+                             & Hex(Err.Number)
+Else
+   WScript.Echo "Success:    Password set for user"
+   WScript.Echo "            " & objUser.ADsPath
+End If
+    
+    
+====================================
+Set-QADUser -Service "<ComputerName>:<PortNumber>" -Identity "<User DN>" 
+-userPassword <NewPassword>
+    
+    
+====================================
+> admod -h . -b cn=jsmith,o=test userpassword::mypasswordQ1 -kerbenc
+    
+    
+====================================
+> admod -h <ComputerName>:<PortNumber> -b <User DN>
+msDS-UserAccountDisabled::TRUE
+    
+    
+====================================
+' The following code will enable
+' or disable an ADAM user
+'---------------- SCRIPT CONFIGURATION ----------------
+strComputerName = "<ComputerName>" ' Use "localhost" for the local computer
+strPort = "<PortNumber>"           ' the LDAP port number to connect to
+strUserDN = "<UserDN>"
+'-------------------------------------------------------
+
+Set objUser = GetObject _
+    ("LDAP://" & strComputerName & ":" & strPort & "/" & strUserDN)
+
+objUser.Put " msDS-UserAccountDisabled", "FALSE" ' set this to TRUE to disable 
+objUser.SetInfo
+    
+    
+====================================
+Enable-QADUser -Identity <User DN> -Service "<ComputerName>:<PortNumber>"
+Disable-QADUser -Identity <User DN> -Service "<ComputerName>:<PortNumber>"
+
+$objUser = GetObject("LDAP://<ComputerName>:<PortNumber>/<UserDN>")
+$objUser.Put("msDS-UserAccountDisabled", "FALSE")
+$objUser.SetInfo()
+    
+    
+====================================
+> admod -h <ComputerName>:<PortNumber> -b <Group DN>
+objectClass::group -add
+    
+    
+====================================
+' The following code will create a group object
+'---------------- SCRIPT CONFIGURATION ----------------
+strComputerName = "<ComputerName>" ' Use "localhost" for the local computer
+strPort = "<PortNumber>"           ' the LDAP port number to connect to
+strOUDN = "<OUDN>"                 ' ie "ou=AdamUsers,o=adatum,c=us"
+strGroupName = "<GroupName>"       ' ie "cn=FinanceGroup"
+'-------------------------------------------------------
+
+Set objOU = GetObject("LDAP://" & strComputerName _
+                       & ":" & strPort & "/" & strOUDN)
+Set objGroup = objOU.Create("group", strGroupName)
+objGroup.SetInfo
+
+' The following code snippet will delete the group you just created
+objOU.delete "group", strGroupName
+    
+    
+====================================
+new-QADObject -Service "<Computer Name>:<Port Number>" -parentcontainer '<Parent
+Container DN>' -type 'group' -name 'MarketingGroup'
+    
+    
+====================================
+$objParentDN = [ADSI] "LDAP://<ComputerName>:<PortNumber>/<Parent Container DN>"
+$objNewGroup = $objParentDN.Create("group", "cn=SalesGroup")
+$objNewGroup.setInfo()
+    
+    
+====================================
+> admod -h <ComputerName>:<PortNumber> -b <Group DN>
+member:+:"<SID=<UserSID>>"
+    
+    
+====================================
+' The following code will modify an
+' ADAM or AD LDS group membership
+'---------------- SCRIPT CONFIGURATION -----------------
+Const ADS_PROPERTY_DELETE = 4
+strComputerName = "<ComputerName>" ' Use "localhost" for the local computer
+strPort = "<PortNumber>"           ' the LDAP port number to connect to
+strGroupDN = "<GroupDN>"       ' ie "cn=FinanceGroup,ou=..."
+strUserDN = "<UserDN>"         ' ie "cn=Joe Smith,
+                                               ' ou=AdamUsers,o=adatum,c=us" 
+'------------------------------------------------------------------------
+
+Set objGroup = GetObject _
+        ("LDAP://" & strComputerName & ":" & strPort & "/" & strGroupDN)
+Set objUser = GetObject _
+        ("LDAP://" & strComputerName & ":" & strPort & "/" & strUserDN)
+
+' the following code will add a user object to a group
+objGroup.Add objUser.AdsPath
+
+' the following code will remove a user object from a group
+objGroup.PutEx ADS_PROPERTY_DELETE, "member", _ Array(strUserDN)
+objGroup.SetInfo
+
+' the following code will enumerate all members of a group
+For Each objUser in objGroup.Members
+    Wscript.Echo objUser.Name
+    
+    
+====================================
+Add-QADGroupMember -Identity <GroupDN> -Service <ComputerName>:<PortNumber> -Member
+<UserDN>
+Remove-QADGroupMember -Identity <GroupDN> -Service <ComputerName>:<PortNumber> 
+-Member <UserDN>
+    
+    
+====================================
+$objGroup = [ADSI] "LDAP://<ComputerName>:<PortNumber>/<Group DN>"
+$objUser = [ADSI] "LDAP://<ComputerName>:<PortNumber>/<User DN>"
+$objGroup.PutEx(3, "member", @($objUser))
+$objGroup.SetInfo()
+    
+    
+====================================
+$objGroup = [ADSI] "LDAP://<ComputerName>:<PortNumber>/<Group DN>"
+$objUser = [ADSI] "LDAP://<ComputerName>:<PortNumber>/<User DN>"
+$objGroup.PutEx(4, "member", @($objUser))
+$objGroup.SetInfo()
+    
+    
+====================================
+> adfind -h <ComputerName>:<PortNumber> -b <Object DN> -s base
+    
+    
+====================================
+> admod -h <ComputerName>:<PortNumber> -b <Object DN> <AttributeName>::<Value>
+    
+    
+====================================
+> admod -h <ComputerName>:<PortNumber> -b <Object DN> <AttributeName> :-
+    
+    
+====================================
+' The following code will list all attributes of an object
+'---------------- SCRIPT CONFIGURATION ----------------
+strComputerName = "<ComputerName>" ' Use "localhost" for the local computer
+strPort = "<PortNumber>"           ' the LDAP port number to connect to
+strObjectDN = "<ObjectDN>"          ' ie "ou= AdamUsers,o=adatum,c=us"
+strObjectType = "<ObjectType>"     ' ie "organizationalunit", "group", "user"
+strAttributeName = "<AttributeName>" ' ie "description
+strAttributeValue = "<AttributeValue>" ' ie "Description of this object"
+'-------------------------------------------------------
+
+Set objObject = GetObject _
+        ("LDAP://" & strComputerName & ":" & strPort & "/" & strObjectDN)
+Set objObjectProperties = GetObject("LDAP://" & strComputerName & _
+                                    ":" & strPort & "/schema/" & _
+                                     strObjectType
+
+For Each strAttribute in objObjectProperties.MandatoryProperties
+    strValues = objObject.GetEx(strAttribute)
+    For Each strItem in strValues
+        Wscript.Echo strAttribute & " -- " & strItem
+    Next
+Next
+
+For Each strAttribute in objObjectProperties.OptionalProperties
+    strValues = objObject.GetEx(strAttribute)
+    If Err = 0 Then
+       For Each strItem in strValues
+           Wscript.Echo strAttribute & " -- " & strItem
+       Next
+    Else
+       Wscript.Echo strAttribute & " -- No value set"
+       Err.Clear
+    End If
+Next
+
+' the following code will update an attribute value 
+objObject.Put strAttributeName, strAttributeValue
+objObject.SetInfo
+    
+    
+====================================
+Get-QADObject -Service <ComputerName>:<PortNumber> -Identity <ObjectDN>
+-IncludeAllProperties
+Set-QADObject -Service <ComputerName>:<PortNumber> -Identity <ObjectDN> 
+-ObjectAttributes @{<attribute1>=<value1>;<attribute2>=<value2>}
+$objADAMObj = [ADSI] "LDAP://<ComputerName>:<PortNumber/<Object DN>"
+$objADAMObj.Put("<attribute>", "<value>")
+$objADAMObj.SetInfo()
+    
+    
+====================================
+dn: cn=Joe Smith,cn=users,ou=AdamUsers,o=adatum,c=us
+changetype: add
+objectClass: user
+cn: Joe Smith
+name: Joe Smith
+
+dn: cn=Richard Mahler,cn=users,ou=AdamUsers,o=adatum,c=us
+changetype: add
+objectClass: user
+cn: Richard Mahler
+name: Richard Mahler
+
+dn: cn=Doug Martin,cn=users,ou= AdamUsers,o=adatum,c=us 
+changetype: add
+objectClass: user
+cn: Doug Martin
+name: Doug Martin
+    
+    
+====================================
+> ldifde -i -f c:\import.ldf -s <servername>:<portnumber> -k -j
+    
+    
+====================================
+> repadmin /syncall <servername>:<port> <AppPartitionDN>
+    
+    
+====================================
+> admod -h <ComputerName>:<PortNumber> -b <ConfigDN>
+msDS-ReplAuthenticationMode::<AuthenticationMode>
+    
+    
+====================================
+' The following code will modify the replication authentication mode of a 
+' configuration set
+'---------------- SCRIPT CONFIGURATION ----------------
+strComputerName = "<ComputerName>" ' Use "localhost" for the local computer
+strPort = "<PortNumber>"           ' the LDAP port number to connect to
+strConfigPart = "<Configuration Partition DN>" ' ie "cn=configuration,cn=adatum,c=us"
+'-------------------------------------------------------
+
+Set objConfig = GetObject("LDAP://" & strComputerName & _ ":" & strPort & _
+                      "/" & strConfigPart))
+objConfig.put("msDS-ReplAuthenticationMode", <AuthenticationMode>"
+objConfig.SetInfo
+    
+    
+====================================
+set-QADObject -Service <ComputerName>:<PortNumber> -Identity <ConfigDN> 
+-ObjectAttributes @{"msDS-ReplAuthenticationMode"="<AuthenticationMode>"}
+
+$objConfig = [ADSI] "LDAP://<ComputerName>:<PortNumber>/<ConfigDN>"
+$objConfig.Put("msDS-ReplAuthenticationMode", "<AuthenticationMode>")
+$objConfig.SetInfo()
+    
+    
+====================================
+> dsacls \\<servername>:<port>\<ObjectDN>
+    
+    
+====================================
+> dsacls "\\<servername>:<port>\<ObjectDN>" /G <User or Group Receiving
+Permissions>:<Permission Statement>
+    
+    
+====================================
+> dsacls "\\<servername>:<port>\<ObjectDN>" /D <User or Group Receiving
+Permissions>:<Permission Statement>
+    
+    
+====================================
+[PermissionBits];[{Object|Property}];[InheritedObjectType]
+    
+    
+====================================
+> auditpol \\<DomainControlerName> /enable /directory:all
+    
+    
+====================================
+Auditpol /set /subcategory:"directory service changes"
+    
+    
+====================================
+Event Type:        Success Audit
+Event Source:      Security
+Event Category:    Directory Service Access
+Event ID:          566
+Date:              5/26/2003
+Time:              7:24:10 PM
+User:              ADATUM\administrator
+Computer:          DC1
+Description:
+Object Operation:
+         Object Server:        DS
+         Operation Type:       Object Access
+         Object Type:          organizationalUnit
+         Object Name:          OU=Sales,DC=adatum,DC=com
+         Handle ID:            -
+         Primary User Name:    DC1$
+         Primary Domain:       ADATUM
+         Primary Logon ID:     (0x0,0x3E7)
+         Client User Name:     administrator
+         Client Domain:        ADATUM
+         Client Logon ID:      (0x0,0x3B4BE)
+         Accesses:             Create Child
+
+         Properties:
+         Create Child
+         user
+
+         Additional Info:        CN=foobar,OU=Sales,DC=adatum,DC=com
+         Additional Info2:       CN=foobar,OU=Sales,DC=adatum,DC=com
+         Access Mask:            0x1
+    
+    
+==================

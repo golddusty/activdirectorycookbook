@@ -1,0 +1,533 @@
+chapter: Organizational Units
+==================
+> dsadd ou "<OrgUnitDN>" -desc "<Description>"
+    
+    
+====================================
+> admod -b <OrgUnitDN> objectclass::organizationalUnit
+  description::"<Description>" -add
+    
+    
+====================================
+> admod -b ou=Finance,dc=adatum,dc=com
+  objectclass::organizationalUnit
+  description::"Finance OU" -add
+
+> AdMod V01.10.00cpp Joe Richards (joe@joeware.net) February 2007
+
+>
+> DN Count: 1
+> Using server: 2k3-sp1-r2.adatum.com
+> Adding specified objects...
+>   DN: ou=Finance,dc=adatum,dc=com...
+>
+> The command completed successfully
+    
+    
+====================================
+' This code creates an OU
+' ------ SCRIPT CONFIGURATION ------
+strOrgUnit       = "<OUName>" '      e.g. Tools
+strOrgUnitParent = "<ParentDN>" '    e.g. ou=Engineering,dc=adatum,dc=com
+strOrgUnitDescr  = "<Description>" ' e.g. Tools Users
+' ------ END CONFIGURATION ---------
+
+set objDomain = GetObject("LDAP://" & strOrgUnitParent)
+set objOU = objDomain.Create("organizationalUnit", "OU=" & strOrgUnit)
+objOU.Put "description", strOrgUnitDescr
+objOU.SetInfo
+WScript.Echo "Successfully created " & objOU.Name
+    
+    
+====================================
+new-QADObject -parentcontainer '<Parent Container DN>' -type 'organizationalunit' 
+-name 'Marketing' -ObjectAttributes @{description='Marketing OU'}
+    
+    
+====================================
+$objParentDN = [System.DirectoryServices.DirectoryEntry] "LDAP://<Parent Container DN>"
+$objNewOU = $objParentDN.Create("organizationalunit", "ou=Sales")
+$objNewOU.put("description", "Sales OU")
+$bjNewOU.setInfo()
+    
+    
+====================================
+> dsquery ou domainroot
+    
+    
+====================================
+> adfind -default -f "objectcategory=organizationalUnit" -dn
+    
+    
+====================================
+> adfind -default -sc oudmp
+    
+    
+====================================
+> adfind -default -f "objectcategory=organizationalUnit" -dn
+>
+> AdFind V01.27.00cpp Joe Richards (joe@joeware.net) November 2005
+>
+> Using server: dc1.adatum.com:389
+> Directory: Windows Server 2003
+> Base DN: DC=adatum,DC=com
+>
+> dn:OU=Domain Controllers,DC=adatum,DC=com
+> dn:OU=Finance,DC=adatum,DC=com
+> dn:OU=FinanceTemps,OU=Finance,DC=adatum,DC=com
+>
+> 3 Objects returned
+    
+    
+====================================
+' This code recursively displays all container and organizationalUnit
+' objects under a specified base. Using "" for the second parameter means
+' that there will be no indention for the first level of objects displayed.
+Call DisplayOUs(LDAP://<DomainDN>", "")
+
+'
+DisplayOUs takes the ADsPath of the object to display
+' child objects for and the number of spaces (indention) to
+' use when printing the first parameter
+Function DisplayOUs( strADsPath, strSpace)
+   set objObject = GetObject(strADsPath)
+   Wscript.Echo strSpace & strADsPath
+   objObject.Filter = Array("container","organizationalUnit")
+   for each objChildObject in objObject
+      Call DisplayOUs(objChildObject.ADsPath, strSpace & " ")
+   next
+End Function
+    
+    
+====================================
+get-QADObject -SearchRoot <Base Search DN> -LdapFilter
+'(objectcategory=organizationalunit)'
+    
+    
+====================================
+$strCategory = "organizationalunit"
+$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objDomain
+$objSearcher.Filter = ("(objectCategory=$strCategory)")
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+> dsquery * domainroot -filter
+"(|(objectcategory=container)(objectcategory=organizationalunit))"
+-limit 0
+    
+    
+====================================
+> adfind -default -f "ou=<OU Name>"
+    
+    
+====================================
+Set objCommand = CreateObject("ADODB.Command")
+Set objConnection = CreateObject("ADODB.Connection")
+objConnection.Provider = "ADsDSOObject"
+objConnection.Open "Active Directory Provider"
+objCommand.ActiveConnection = objConnection
+
+strBase = "<LDAP://<DomainDN>>"
+strOUName = "Finance"
+strFilter = "(&(objectCategory=organizationalUnit)" _
+  "&(name=" & strOUName & "))"
+strAttributes = "distinguishedName"
+strQuery = strBase & ";" & strFilter & ";" & strAttributes & ";subtree"
+
+objCommand.CommandText = strQuery
+objCommand.Properties("Page Size") = 100
+objCommand.Properties("Timeout") = 30
+objCommand.Properties("Cache Results") = False
+Set objRecordSet = objCommand.Execute
+
+While Not objRecordSet.EOF
+  strName = objRecordSet.Fields("distinguishedName").Value
+  Wscript.Echo "Distinguished Name: " & strName
+  objRecordSet.MoveNext
+Wend
+
+objConnection.Close
+    
+    
+====================================
+get-QADObject -SearchRoot <Base Search DN> -LdapFilter '(ou=<OU Name>)'
+    
+    
+====================================
+$objDomain = New-Object System.DirectoryServices.DirectoryEntry
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objDomain
+$objSearcher.Filter = "(ou=<OU Name>)"
+$objSearcher.FindAll()
+    
+    
+====================================
+> dsquery * "<OU DN>" -limit 0 -scope onelevel
+    
+    
+====================================
+> adfind -b "<OU DN>" -s one -dn
+    
+    
+====================================
+set objOU = GetObject("LDAP://<OU DN>")
+for each objChildObject in objOU
+    Wscript.Echo objChildObject.ADSPath
+next
+    
+    
+====================================
+get-QADObject -searchRoot <OU DN>
+    
+    
+====================================
+([ADSI]"LDAP://<OU DN>").psbase.Children
+
+    
+    
+====================================
+> adfind -default -rb ou=Finance -s one -dn
+    
+    
+====================================
+' Using "" for the second parameter means that there will be no
+' indention for the first level of objects displayed.
+DisplayNestedOUs "LDAP://<OrgUnitDN>", "")
+' DisplayObjects takes the ADsPath of the object to display child
+' objects for and the second is the number of spaces (indention)
+' to use when printing the first parameter
+Function
+DisplayNestedOUs( strADsPath, strSpace)
+   set objObject = GetObject(strADsPath)
+   Wscript.Echo strSpace & strADsPath
+   for each objChildObject in objObject
+      DisplayObjects objChildObject.ADsPath, strSpace & " "
+   next
+End Function
+    
+    
+====================================
+> dsrm "<OrgUnitDN>" -subtree -exclude
+    
+    
+====================================
+>adfind -default -rb ou=<OU Name> -s one -dsq | admod -unsafe -del
+    
+    
+====================================
+' This code deletes the objects in an OU, but not the OU itself
+set objOU = GetObject("LDAP://<OrgUnitDN>")
+for each objChildObject in objOU
+    Wscript.Echo "
+Deleting " & objChildObject.ADSPath
+    objChildObject.DeleteObject(0)
+next
+    
+    
+====================================
+get-QADObject -searchRoot <OU DN> | remove-QADObject -force
+    
+    
+====================================
+$objOU = [ADSI] "LDAP://<OU DN>"
+$objOU.psbase.Children() |% $_.psbase.DeleteObject(0)
+    
+    
+====================================
+> dsrm "<OrgUnitDN>" -subtree
+    
+    
+====================================
+> admod -b "<OrgUnitDN>" -del -treedelete
+Using VBScript' This code deletes an OU and all child objects of the OU
+set objOU = GetObject("LDAP://<OrgUnitDN>")
+objOU.DeleteObject(0)
+    
+    
+====================================
+remove-QADObject -identity '<OU DN>' -DeleteTree
+    
+    
+====================================
+$objOU = [System.DirectoryServices.DirectoryEntry] "LDAP://<OU DN>"
+$objOU.psbase.DeleteTree()
+    
+    
+====================================
+> for /f "usebackq delims=""" %i in (`dsquery * "<Old OU DN>" -scope
+Onelevel') do dsmove -newparent "<New OU DN>" %i
+    
+    
+====================================
+> adfind -b "<Old OU DN>" -s one -dsq |
+         admod -move "<New OU DN>"
+    
+    
+====================================
+' This code moves objects from the "old" OU to the "new" OU
+' ------ SCRIPT CONFIGURATION -----
+strOldOU = "<Old OU DN>" ' e.g. ou=EngTools,dc=adatum,dc=com
+strNewOU = "<New OU DN>" ' e.g. ou=Tools,dc=adatum,dc=com
+' ------ END CONFIGURATION --------
+
+set objOldOU = GetObject("LDAP://" & strOldOU)
+set objNewOU = GetObject("LDAP://" & strNewOU)
+for each objChildObject in objOldOU
+    Wscript.Echo "
+Moving " & objChildObject.Name
+    objNewOU.MoveHere objChildObject.ADsPath, objChildObject.Name
+next
+    
+    
+====================================
+get-QADObject -searchroot '<Old OU DN>' | move-QADObject -newparent '<New OU DN>'
+    
+    
+====================================
+$objOldOU = [ADSI] "LDAP://<Old OU DN>"
+$objNewOU = [ADSI] "LDAP://<New OU DN>"
+$objOldOU.psbase.Children |% $_.psbase.MoveTo($objNewOU)
+    
+    
+====================================
+> dsmove "<OrgUnitDN>" -newparent "<NewParentDN>"
+    
+    
+====================================
+> admod -b "<OrgUnitDN>" -move "<NewParentDN>"
+    
+    
+====================================
+set objOU = GetObject("LDAP://<NewParentDN>")
+objOU.MoveHere "LDAP://<OrgUnitDN>", "<OrgUnitRDN>"
+    
+    
+====================================
+move-QADObject -identity '<OU DN>' -newparent '<Destination DN>'
+
+$objOU = [ADSI] "LDAP://<OU DN>"
+$newParent = [ADSI] "LDAP://<Destination DN>'
+$objOU.psbase.MoveTo($newParent)
+    
+    
+====================================
+> dsmove "<ObjectDN>" -newname "<NewName>"
+    
+    
+====================================
+> admod -b "<ObjectDN>" -rename "<NewName>"
+    
+    
+====================================
+' This code renames an object and leaves it in the same location.
+' ------ SCRIPT CONFIGURATION -----
+strCurrentParentDN = "<CurrentParentDN>"
+strObjectOldName   = "ou=<OldName>"
+strObjectNewName   = "ou=<NewName>"
+' ------ END CONFIGURATION --------
+
+set objCont = GetObject("LDAP://" & strCurrentParentDN)
+objCont.MoveHere "LDAP://" & strObjectOldName & "," & _
+                 strCurrentParentDN, strObjectNewName
+    
+    
+====================================
+Rename-QADObject -identity '<OU DN>' -newname '<New OU Name>'
+
+$objOU = [ADSI] "LDAP://<OU DN>"
+$objOU.psbase.Rename("<New OU Name>")
+    
+    
+====================================
+> admod -b <ObjectDN> <attribute>:<operation>:<value>
+    
+    
+====================================
+> admod -b cn="ou=Finance,dc=adatum,dc=com"
+   description::"Finance Department"
+    
+    
+====================================
+strObjectDN = "ou=Finance,dc=adatum,dc=com"
+set objUser = GetObject("LDAP://" & strObjectDN)
+objUser.Put "description", "Finance Department"
+objUser.SetInfo
+    
+    
+====================================
+set-QADObject -identity '<OU DN>' -ObjectAttributes
+@{'<Attribute1>'='<Value>';'<Attribute2>'='<Value>'...}
+
+$objOU = [System.DirectoryServices.DirectoryEntry] "LDAP://<OU DN>"
+$objOU.put("<Attribute1>","<Value>")
+$objOU.put("<Attribute2>","<Value>")
+$objOU.SetInfo()
+    
+    
+====================================
+strOUDN = ou="<OU DN>" ' i.e. "ou=Finance,dc=adatum,dc=com"
+Set objContainer = GetObject("LDAP://" & strOUDN)
+
+For Each strValue in objContainer.description
+  WScript.Echo "Description: " & strValue
+Next
+
+Wscript.Echo "Street Address: " & strStreetAddress
+Wscript.Echo "Province/State: " & objContainer.st
+Wscript.Echo "Postal/ZIP Code: " & objContainer.postalCode
+Wscript.Echo "
+Country: " & objContainer.c
+    
+    
+====================================
+Const ADS_PROPERTY_CLEAR = 1
+strOUDN = ou="<OU DN>" ' i.e. "ou=Finance,dc=adatum,dc=com"
+
+Set objContainer = GetObject("LDAP://" & strOUDN)
+
+objContainer.PutEx ADS_PROPERTY_CLEAR, "description", 0
+objContainer.PutEx ADS_PROPERTY_CLEAR, "street", 0
+objContainer.PutEx ADS_PROPERTY_CLEAR, "st", 0
+objContainer.PutEx ADS_PROPERTY_CLEAR, "postalCode", 0
+objContainer.PutEx ADS_PROPERTY_CLEAR, "c", 0
+objContainer.SetInfo
+    
+    
+====================================
+> dsquery * "<OrgUnitDN>" -scope base -attr
+msDS-Approx-Immed-Subordinates
+    
+    
+====================================
+> adfind -b "<OrgUnitDN>" -s base msDS-Approx-Immed-Subordinates
+    
+    
+====================================
+' This code displays the approximate number of child objects for an OU
+set objOU = GetObject("LDAP://<OU DN>")
+objOU.GetInfoEx Array("msDS-Approx-Immed-Subordinates"), 0
+WScript.Echo "Number of child objects: " & _
+             objOU.Get("msDS-Approx-Immed-Subordinates")
+    
+    
+====================================
+> admod -b <ObjectDN> managedBy::<ManagerDN>
+    
+    
+====================================
+> admod -b <ObjectDN> managedBy:-
+    
+    
+====================================
+strObjectDN = "ou=Finance,dc=adatum,dc=com"
+strUserDN = "cn=Joe Smith,ou=Finance,dc=adatum,dc=com"
+set objUser = GetObject("LDAP://" & strObjectDN)
+objUser.Put "managedBy", strUserDN
+objUser.SetInfo
+    
+    
+====================================
+Set-QADObject -identity <OU DN> -objectAttributes @{'managedBy'='<User DN>'}
+
+$objOU = [ADSI] "LDAP://<OU DN>"
+$objOU.put("managedBy", "<User DN>"
+$objOU.SetInfo()
+    
+    
+====================================
+' This code links a GPO to an OU in the specified domain
+' ------ SCRIPT CONFIGURATION -----
+strDomainDN = "<DomainDN>" '  e.g. dc=adatum,dc=com
+strGPO      = "<GPOName>" '   e.g. WorkstationsGPO
+strOUDN     = "<OrgUnitDN>" ' e.g. ou=Workstations,dc=adatum,dc=com
+
+' ------ END CONFIGURATION --------
+
+strBaseDN = "<LDAP://cn=policies,cn=system,dc=" & strDomainDN & ">;"
+strFilter = "(&(objectcategory=grouppolicycontainer)" & _
+              "(objectclass=grouppolicycontainer)" & _
+              "(displayname=" & strGPO & "));"
+strAttrs = "ADsPath;"
+strScope = "OneLevel"
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strBaseDN & strFilter & strAttrs & strScope)
+if objRS.EOF <> TRUE then
+   objRS.MoveFirst
+end if
+
+if objRS.RecordCount = 1 then
+   strGPOADsPath = objRS.Fields(0).Value
+   WScript.Echo "GPO Found: " & strGPOADsPath
+elseif objRS.RecordCount = 0 then
+   WScript.Echo "Did not founding matching GPO for: " & strGPO
+   Wscript.Quit
+elseif objRS.RecordCount > 1 then
+   WScript.Echo "More than 1 GPO found matching: " & strGPO
+   Wscript.Quit
+end if
+
+set objOU = GetObject("LDAP://" & strOUDN)
+
+on error resume next
+strGPLink = objOU.Get("gpLink")
+if Err.Number then
+   if Err.Number <> -2147463155 then
+      WScript.Echo "Fatal error while retrieving gpLink attribute: " & _
+                    Err.Description
+      Wscript.Quit
+   end if
+end if
+on error goto 0
+
+objOU.Put "gpLink", strGPLink & "[" & strGPOADsPath & ";0]"
+objOU.SetInfo
+WScript.Echo "GPO successfully linked"
+
+' The following code segment will remove any GPOs that
+' are linked to an OU
+
+Const ADS_PROPERTY_CLEAR = 1
+
+Set objContainer = GetObject _
+  ("LDAP://<OU DN>") ' i.e. "ou=Finance,dc=adatum,dc=com"
+objContainer.PutEx ADS_PROPERTY_CLEAR, "gPLink", 0
+objContainer.PutEx ADS_PROPERTY_CLEAR, "gPOptions", 0
+objContainer.SetInfo
+    
+    
+====================================
+add-sdmgplink -name "Marketing" -scope "ou=marketing,dc=adatum,dc=com"
+    
+    
+====================================
+[LDAP://cn={6491389E-C302-418C-8D9D-
+BB24E65E7507},cn=policies,cn=system,DC=adatum,DC=com;0]
+[LDAP://cn={6AC1786C-016F-
+11D2-945F-00C04fB984F9},cn=policies,cn=system,DC=adatum,DC=com;0]
+    
+    
+====================================
+dsacls <OU DN> /d EVERYONE:SDDT
+    
+    
+====================================
+Add-QADPermission -identity <OU DN> -Account 'EVERYONE' -Rights 'Delete,DeleteTree'
+-ApplyTo 'ThisObjectOnly'
+    
+    
+====================================
+for /f "tokens=*" %i in ('dsquery ou -limit 0') do dsacls %i /d everyone:SDDT
+    
+    
+====================================
+get-QADObject -type 'organizationalunit' | add-QADPermission -Account 'EVERYONE' -
+Rights 'Delete,DeleteTree' -ApplyTo 'ThisObjectOnly'
+    
+    
+==================

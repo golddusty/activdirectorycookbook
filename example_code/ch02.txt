@@ -1,0 +1,854 @@
+chapter: Forests, Domains, and Trusts
+==================
+> netsh wins server \\<WINSServerName> show name <DomainNetBiosName> 1b
+> netsh wins server \\<WINSServerName> show name <DomainNetBiosName> 1c
+> nslookup <DomainControllerDNSName>
+> nslookup -type=SRV _ldap._tcp.gc._msdcs.<ForestDNSName>
+> nslookup <ForestDNSName>
+    
+    
+====================================
+> netsh wins server \\<WINSServerName> show name <DomainNetBiosName> 1b
+> netsh wins server \\<WINSServerName> show name <DomainNetBiosName> 1c
+> nslookup <DomainControllerName>
+> nslookup -type=SRV _ldap._tcp.dc._msdcs.<DomainDNSName>
+> nslookup <DomainDNSName>
+    
+    
+====================================
+> ntdsutil "meta clean" "s o t" conn "con to server
+  <DomainControllerName>" q q
+metadata cleanup: "s o t" "list domains"
+Found 4 domain(s)
+0 - DC=adatum,DC=com
+1 - DC=amer,DC=adatum,DC=com
+2 - DC=emea,DC=adatum,DC=com
+3 - DC=apac,DC=adatum,DC=com
+select operation target: sel domain 2
+No current site
+Domain - DC=emea,DC=adatum,DC=com
+No current server
+No current Naming Context
+select operation target: q
+metadata cleanup: remove sel domain
+    
+    
+====================================
+> ntdsutil "metadata cleanup" "select operation target" connections
+  "connect to server <DomainControllerName>" quit
+select operations target: "list domains"
+Found 4 domain(s)
+0 - DC=adatum,DC=com
+1 - DC=amer,DC=adatum,DC=com
+2 - DC=emea,DC=adatum,DC=com
+3 - DC=apac,DC=adatum,DC=com
+select operation target: select domain 2
+No current site
+Domain - DC=emea,DC=adatum,DC=com
+No current server
+No current Naming Context
+select operation target: quit
+metadata cleanup: remove selected domain
+    
+    
+====================================
+> ntdsutil "p m" "sel op tar" c "co t s <DomainControllerName>"
+q "l d" q q q
+
+> dsquery * -filter "objectcategory=domainDNS" -scope subtree
+
+> adfind -root -f "objectcategory=domainDNS" -dn
+    
+    
+====================================
+' This code gets the list of the domains contained in the
+' forest that the user running the script is logged into.
+
+strForestRoot = "<ForestRootDN>" ' i.e., dc=adatum, dc=com
+strADsPath = "<LDAP://" & strForestRoot & ">;"
+strFilter = "(objectCategory=domainDNS);"
+strAttrs = "dnsRoot;"
+strScope = "SubTree"
+
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strADsPath & strFilter & strAttrs & strScope)
+objRS.MoveFirst
+while Not objRS.EOF
+    For Each root in objRS.Fields("dnsRoot").Value
+        WScript.Echo(root)
+    Next
+    objRS.MoveNext
+wend
+    
+    
+====================================
+connect-QADservice -UseGlobalCatalog
+get-QADobject -searchRoot '<ForestRootDN>' -searchScope 'subTree' -ldapFilter
+'objectClass=domainDNS'
+    
+    
+====================================
+> ntdsutil "partition management" "select operation target" connections "connect
+to server <DomainControllerName>" quit "List domains" quit quit quit
+    
+    
+====================================
+set objRootDSE = GetObject("LDAP://othercorp.com/" & "RootDSE")
+    
+    
+====================================
+Name        Type      DN
+--------    -------   -----
+adatum      domainDNS DC=adatum,DC=com
+amer        domainDNS DC=amer,DC=adatum,DC=com
+    
+    
+====================================
+(&(objectcategory=crossref)(dnsRoot=<DomainDNSName>)(netbiosname=*))
+    
+    
+====================================
+> dsquery * cn=partitions,cn=configuration, <ForestRootDN> -filter
+"(&(objectcategory=crossref)(dnsroot=<DomainDNSName>)(netbiosname=*))" -attr
+netbiosname
+    
+    
+====================================
+> adfind -partitions
+-f "(&(objectcategory=crossref)(dnsroot=<DomainDNSName>)(netbiosname=*))" cn
+netbiosname
+    
+    
+====================================
+' This code prints the NetBIOS name for the specified domain
+' ------ SCRIPT CONFIGURATION -----
+strDomain = "<DomainDNSName>" ' e.g. amer.adatum.com
+' ------ END CONFIGURATION --------
+
+set objRootDSE = GetObject("LDAP://" & strDomain & "/RootDSE")
+strADsPath = "<LDAP://" & strDomain & "/cn=Partitions," & _
+            objRootDSE.Get("configurationNamingContext") & ">;"
+strFilter = "(&(objectclass=Crossref)" & _
+             "(dnsRoot=" & strDomain & ")(netBIOSName=*));"
+strAttrs = "netbiosname;"
+strScope = "Onelevel"
+set objConn = CreateObject("ADODB.Connection")
+objConn.Provider = "ADsDSOObject"
+objConn.Open "Active Directory Provider"
+set objRS = objConn.Execute(strADsPath &  strFilter &  strAttrs &  strScope)
+objRS.MoveFirst
+WScript.Echo "NetBIOS name for " &  strDomain &  " is " &  objRS.Fields(0).Value
+    
+    
+====================================
+$strFilter = "(&(objectclass=Crossref)(dnsRoot=<DomainDNSName>)(netBIOSName=*))"
+$objConfig = New-Object System.DirectoryServices.DirectoryEntry("LDAP://<ConfigDN>)"
+$objSearcher = New-Object System.DirectoryServices.DirectorySearcher
+$objSearcher.SearchRoot = $objConfig
+$objSearcher.Filter = ($strFilter)
+$colResults = $objSearcher.FindAll()
+    
+    
+====================================
+dn: <DomainDN>
+changetype: modify
+replace: ntMixedDomain
+ntMixedDomain: 0
+-
+    
+    
+====================================
+> ldifde -i -f change_domain_mode.ldf
+    
+    
+====================================
+> admod -b dc=adatum,dc=com "ntMixedDomain::0"
+    
+    
+====================================
+' This code changes the mode of the specified domain to native
+' ------ SCRIPT CONFIGURATION ------
+strDomain = "<DomainDNSName>" ' e.g. amer.adatum.com
+' ------ END CONFIGURATION ---------
+
+set objDomain = GetObject("LDAP://" &  strDomain)
+if objDomain.Get("nTMixedDomain") > 0 Then
+   Wscript.Echo "
+Changing mode to native ... "
+   objDomain.Put "nTMixedDomain", 0
+   objDomain.SetInfo
+else
+   Wscript.Echo "Already a native mode domain"
+end if
+    
+    
+====================================
+connect-QADservice -UseGlobalCatalog
+set-QADObject -identity '<DomainDN>' -objectAttributes @{ntMixedDomain=0}
+
+$objDom = [ADSI] "LDAP://<DomainDN>"
+$objDom.put("ntMixedDomain", "0")
+$objDom.SetInfo()
+    
+    
+====================================
+> dsquery * <DomainDN> -scope base -attr msDS-Behavior-Version
+    
+    
+====================================
+> msDS-Behavior-Version
+> 0
+    
+    
+====================================
+> adfind -s Base -b <DomainDN> msDS-Behavior-Version
+    
+    
+====================================
+> AdFind V01.37.00cpp Joe Richards (joe@joeware.net) June 2007
+>
+> Using server: dc1.adatum.com:389
+> Directory: Windows Server 2003
+>
+> dn:dc=adatum,dc=com
+>> msDS-Behavior-Version: 0
+>
+>
+> 1 Objects returned
+    
+    
+====================================
+dn: <DomainDN>
+changetype: modify
+replace: msDS-Behavior-Version
+msDS-Behavior-Version: 2
+-
+    
+    
+====================================
+> ldifde -i -f raise_domain_func_level.ldf
+    
+    
+====================================
+> admod -b dc=adatum,dc=com "msDS-Behavior-Version::2"
+    
+    
+====================================
+> admod -b dc=adatum,dc=com "msDS-Behavior-Version::3"
+>
+> AdMod V01.10.00cpp Joe Richards (joe@joeware.net) February 2007
+>
+> DN Count: 1
+> Using server: dc1.adatum.com
+> Modifying specified objects...
+> DN: dc=adatum,dc=com...
+>
+> The command completed successfully
+    
+    
+====================================
+' This code changes the
+' functional level of the specified domain to
+' the Windows Server 2003 or Windows Server 2008
+' domain functional level
+' ------ SCRIPT CONFIGURATION ------
+strDomain = "<DomainDN>" ' e.g. dc=amer,dc=adatum,dc=com
+strDFL = "<DFL Constant>"    ' Set this value to '2' for Windows Server 2003,
+                             ' Set this value to '3' for Windows Server 2008
+' ------ END CONFIGURATION ---------
+
+set objDomain = GetObject("LDAP://" &  strDomain)
+objDomain.GetInfo
+if objDomain.Get("msDS-Behavior-Version") < strDFL then
+   Wscript.Echo "Changing domain to
+requested functional level ... "
+   objDomain.Put "msDS-Behavior-Version", strDFL
+   objDomain.SetInfo
+else
+   Wscript.Echo "Domain already at requested functional level "
+end if
+    
+    
+====================================
+$domain = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$domain.RaiseDomainFunctionality('Windows2003Domain') # Or else use
+                                                      # 'Windows2008Domain'
+    
+    
+====================================
+> dsquery * cn=Partitions,cn=Configuration,<ForestRootDN> -scope base -attr msDS
+-Behavior-Version
+    
+    
+====================================
+> adfind -partitions -s base  msDS-Behavior-Version
+>
+> AdFind V01.37.00cpp Joe Richards (joe@joeware.net) June 2007
+>
+> Using server: TEST-DC1.test.loc:389
+> Directory: Windows Server 2003
+> Base DN: CN=Partitions,CN=Configuration,DC=test,DC=loc
+>
+> dn:CN=Partitions,CN=Configuration,DC=test,DC=loc
+> msDS-Behavior-Version: 2
+>
+>
+> 1 Objects returned
+    
+    
+====================================
+dn: cn=partitions,cn=configuration, <ForestRootDN>
+changetype: modify
+replace: msDS-Behavior-Version
+msDS-Behavior-Version: 2
+-
+    
+    
+====================================
+> ldifde -i -f raise_forest_func_level.ldf
+    
+    
+====================================
+> admod -b <ForestDN> "msDS-Behavior-Version::2"
+    
+    
+====================================
+> admod -b <ForestDN> "msDS-Behavior-Version::3"
+    
+    
+====================================
+> AdMod V01.10.00cpp Joe Richards (joe@joeware.net) February 2007
+>
+> DN Count: 1
+> Using server: dc1.adatum.com
+> Modifying specified objects...
+> DN: cn=Partitions,cn=Configuration,dc=adatum,dc=com...
+>
+> The command completed successfully
+    
+    
+====================================
+' This code changes the functional level of the forest the
+' user running the script is logged into to Windows Server 2003
+' or Windows Server 2008.
+
+' ------ SCRIPT CONFIGURATION ------
+strFFL = "<FFL Constant>"    ' Set this value to '2' for Windows Server 2003,
+                             ' Set this value to '3' for Windows Server 2008
+' ------ END CONFIGURATION ---------
+
+
+set objRootDSE = GetObject("LDAP://RootDSE")
+set objDomain = GetObject("LDAP://cn=partitions," &_
+                           objRootDSE.Get("configurationNamingContext") )
+if objDomain.Get("msDS-Behavior-Version") < strFFL then
+   Wscript.Echo "Attempting to change forest to " &  _
+                "the requested functional level ... "
+   objDomain.Put "msDS-Behavior-Version", strFFL
+   objDomain.SetInfo
+else
+   Wscript.Echo "Forest already at the requested functional level"
+end if
+    
+    
+====================================
+$forest = [System.DirectoryServices.ActiveDirectory.Forest]::getCurrentForest()
+$forest.RaiseForestFunctionality('Windows2003Forest') # Or use 'Windows2008Forest'
+    
+    
+====================================
+>  adprep /forestprep
+    
+    
+====================================
+>  adprep /domainprep
+    
+    
+====================================
+> adprep /domainprep /gpprep
+    
+    
+====================================
+cn=Windows2003Update,cn=ForestUpdates,cn=Configuration,<ForestRootDN>
+    
+    
+====================================
+cn=ActiveDirectoryUpdate,cn=ForestUpdates,cn=Configuration,<ForestRootDN>
+    
+    
+====================================
+cn=Windows2003Update,cn=DomainUpdates,cn=System,<DomainDN>
+    
+    
+====================================
+cn=ActiveDirectoryUpdate,cn=DomainUpdates,cn=System,<DomainDN>
+    
+    
+====================================
+> winnt32 /checkupgradeonly
+    
+    
+====================================
+[Unattended]
+Win9xUpgrade = Yes
+
+[Win9xUpg]
+ReportOnly = Yes
+SaveReportTo = "\\server1\upgradereports\"
+    
+    
+====================================
+> winnt32 /checkupgradeonly /unattend:c:\unattend.txt
+    
+    
+====================================
+> netdom trust TrustingDomainName/d:TrustedDomainName/add
+    
+    
+====================================
+> netdom trust ADATUM_NT4 /d:ADATUM /add
+         /UserD:ADATUM\administrator /PasswordD:*
+         /UserO:ADATUM_NT4\administrator /PasswordO:*
+    
+    
+====================================
+$localDom = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$strRemoteDom = 'treyresearch.net'
+$strRemoteUser = 'administrator'
+$strRemotePass = 'P@ssw0rd'
+$remoteCon = New-Object
+System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain',$strRemoteDom,
+$strRemoteUser,$strRemotePass)
+$remoteDom =
+[System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($remoteCon)
+$trustDirection = 'Outbound'
+$localDom.CreateTrustRelationship($remoteDom, $trustDirection)
+    
+    
+====================================
+> netdom trust <Forest1DNSName> /Domain:<Forest2DNSName> /Twoway /Transitive /ADD
+         [/UserD:<Forest2AdminUser> /PasswordD:*]
+         [/UserO:<Forest1AdminUser> /PasswordO:*]
+    
+    
+====================================
+> netdom trust adatum.com /Domain:othercorp.com /Twoway /Transitive /ADD
+         /UserD:administrator@othercorp.com /PasswordD:*
+         /UserO:administrator@adatum.com /PasswordO:*
+    
+    
+====================================
+$localFor = [System.DirectoryServices.ActiveDirectory.Forest]::getCurrentForest()
+$strRemoteFor = 'treyresearch.net'
+$strRemoteUser = 'administrator'
+$strRemotePass = 'P@ssw0rd'
+$remoteCon = New-Object
+System.DirectoryServices.ActiveDirectory.DirectoryContext('Forest',
+$strRemoteFor,$strRemoteUser,$strRemotePass)
+$trustDirection = 'Bidirectional'$localFor.CreateTrustRelationship
+($remoteFor, $trustDirection)
+    
+    
+====================================
+> netdom trust <Domain1DNSName> /Domain:<Domain2DNSName /Twoway /ADD
+         [/UserD:<Domain2AdminUser> /PasswordD:*]
+         [/UserO:<Domain1AdminUser> /PasswordO:*]
+    
+    
+====================================
+> netdom trust emea.adatum.com /Domain:apac.adatum.com /Twoway /ADD
+         /UserD:administrator@apac.adatum.com /PasswordD:*
+         /UserO:administrator@emea.adatum.com /PasswordO:*
+    
+    
+====================================
+> netdom trust <ADDomainDNSName> /Domain:<KerberosRealmDNSName>
+         /Realm /ADD /PasswordT:<TrustPassword>
+         [/UserO:<ADDomainAdminUser> /PasswordO:*]
+    
+    
+====================================
+> netdom trust adatum.com /Domain:kerb.adatum.com
+         /Realm /ADD /PasswordT:MyKerbRealmPassword
+         /UserO:administrator@adatum.com /PasswordO:*
+    
+    
+====================================
+> netdom query trust /Domain:<DomainDNSName>
+    
+    
+====================================
+> nltest /domain_trusts /All_Trusts
+    
+    
+====================================
+strComputer = "."
+Set objWMIService = GetObject("winmgmts:" _
+    & "{impersonationLevel=impersonate}!\\" & _
+    strComputer &  "\root\MicrosoftActiveDirectory")
+
+Set trustList = objWMIService.ExecQuery _
+    ("Select * from Microsoft_DomainTrustStatus")
+
+For each trust in trustList
+    Wscript.Echo "Trusted domain: " &  trust.TrustedDomain
+    Wscript.Echo "Trust direction: " &  trust.TrustDirection
+    Wscript.Echo "(1: inbound, 2: outbound, 3: two-way)"
+    Wscript.Echo "Trust type: " &  trust.TrustType
+    Wscript.Echo "(1: downlevel, 2: uplevel, 3: realm, 4: DCE)"
+    Wscript.Echo "Trust attributes: " &  trust.TrustAttributes
+    Wscript.Echo "(1: nontransitive, 2: up-level clients only,"
+    Wscript.Echo " 4: tree parent, 8: tree root)"
+    Wscript.Echo "Trusted domain controller name: " &  trust.TrustedDCName
+Next
+    
+    
+====================================
+Microsoft (R) Windows Script Host Version 5.6
+Copyright (C) Microsoft Corporation 1996-2001. All rights reserved.
+
+Trusted domain: barcelona.corp
+Trust direction: 3
+(1: inbound, 2: outbound, 3: two-way)
+Trust type: 2
+(1: downlevel, 2: uplevel, 3: realm, 4: DCE)
+Trust attributes: 4
+(1: nontransitive, 2: up-level clients only,
+4: tree parent, 8: tree root)
+Trusted domain controller name: \\dc1.barcelona.corp
+    
+    
+====================================
+$dom = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$dom.GetAllTrustRelationships() | format-list *
+    
+    
+====================================
+SourceName:           adatum.com
+TargetName:           treyresearch.com
+TrustType:            External
+TrustDirection:       Bidirectional
+    
+    
+====================================
+' This code prints the trusts for the specified domain.
+' ------ SCRIPT CONFIGURATION ------
+strDomain = "<DomainDNSName>" ' e.g. adatum.com
+' ------ END CONFIGURATION ---------
+
+' Trust Direction Constants taken from NTSecAPI.h
+set objTrustDirectionHash = CreateObject("Scripting.Dictionary")
+objTrustDirectionHash.Add "DIRECTION_DISABLED", 0
+objTrustDirectionHash.Add "DIRECTION_INBOUND", 1
+objTrustDirectionHash.Add "DIRECTION_OUTBOUND", 2
+objTrustDirectionHash.Add "DIRECTION_BIDIRECTIONAL", 3
+
+' Trust Type Constants - taken from NTSecAPI.h
+set objTrustTypeHash = CreateObject("Scripting.Dictionary")
+objTrustTypeHash.Add "TYPE_DOWNLEVEL", 1
+objTrustTypeHash.Add "TYPE_UPLEVEL", 2
+objTrustTypeHash.Add "TYPE_MIT", 3
+objTrustTypeHash.Add "TYPE_DCE", 4
+
+' Trust Attribute Constants - taken from NTSecAPI.h
+set objTrustAttrHash = CreateObject("Scripting.Dictionary")
+objTrustAttrHash.Add "ATTRIBUTES_NON_TRANSITIVE", 1
+objTrustAttrHash.Add "ATTRIBUTES_UPLEVEL_ONLY", 2
+objTrustAttrHash.Add "ATTRIBUTES_QUARANTINED_DOMAIN", 4
+objTrustAttrHash.Add "ATTRIBUTES_FOREST_TRANSITIVE", 8
+objTrustAttrHash.Add "ATTRIBUTES_CROSS_ORGANIZATION", 16
+objTrustAttrHash.Add "ATTRIBUTES_WITHIN_FOREST", 32
+objTrustAttrHash.Add "ATTRIBUTES_TREAT_AS_EXTERNAL", 64
+
+set objRootDSE = GetObject("LDAP://" &  strDomain &  "/RootDSE")
+set objTrusts = GetObject("LDAP://cn=System," &  _
+                           objRootDSE.Get("defaultNamingContext") )
+
+objTrusts.Filter = Array("trustedDomain")
+Wscript.Echo "Trusts for " &  strDomain &  ":"
+
+for each objTrust in objTrusts
+
+  for each strFlag In objTrustDirectionHash.Keys
+     if objTrustDirectionHash(strFlag) = objTrust.Get("trustDirection") then
+         strTrustInfo = strTrustInfo &  strFlag &  " "
+     end If
+  next
+
+  for each strFlag In objTrustTypeHash.Keys
+     if objTrustTypeHash(strFlag) = objTrust.Get("trustType") then
+         strTrustInfo = strTrustInfo &  strFlag &  " "
+     end If
+  next
+
+  for each strFlag In objTrustAttrHash.Keys
+     if objTrustAttrHash(strFlag) = objTrust.Get("trustAttributes") then
+        strTrustInfo = strTrustInfo &  strFlag &  " "
+     end If
+  next
+
+  WScript.Echo " " &  objTrust.Get("trustPartner") &  " : " &  strTrustInfo
+  strTrustInfo = ""
+next
+    
+    
+====================================
+> netdom trust <TrustingDomain> /Domain:<TrustedDomain> /Verify /verbose
+    [/UserO:<TrustingDomainUser> /PasswordO:*]
+    [/UserD:<TrustedDomainUser> /PasswordD:*]
+    
+    
+====================================
+' The following code lists all of the trusts for the
+' specified domain using the Trustmon WMI Provider.
+' The Trustmon WMI Provider is supported on Windows Server 2003 and 2008.
+' ------ SCRIPT CONFIGURATION ------
+strDomain = "<DomainDNSName>" ' e.g. amer.adatum.com
+' ------ END CONFIGURATION ---------
+
+set objWMI = GetObject("winmgmts:\\" &  strDomain &  _
+                       "\root\MicrosoftActiveDirectory")
+set objTrusts = objWMI.ExecQuery("Select * from Microsoft_DomainTrustStatus")
+for each objTrust in objTrusts
+    Wscript.Echo objTrust.TrustedDomain
+    Wscript.Echo " TrustedAttributes: " &  objTrust.TrustAttributes
+    Wscript.Echo " TrustedDCName: "     &  objTrust.TrustedDCName
+    Wscript.Echo " TrustedDirection: "  &  objTrust.TrustDirection
+    Wscript.Echo " TrustIsOk: "         &  objTrust.TrustIsOK
+    Wscript.Echo " TrustStatus: "       &  objTrust.TrustStatus
+    Wscript.Echo " TrustStatusString: " &  objTrust.TrustStatusString
+    Wscript.Echo " TrustType: "         &  objTrust.TrustType
+    Wscript.Echo ""
+next
+
+' This code shows how to search specifically for trusts
+' that have failed, which can be accomplished using a WQL query that
+' contains the query: TrustIsOk = False
+' ------ SCRIPT CONFIGURATION ------
+strDomain = "<DomainDNSName>" ' e.g. amer.adatum.com
+' ------ END CONFIGURATION ---------
+
+set objWMI = GetObject("winmgmts:\\" &  strDomain &  _
+                       "\root\MicrosoftActiveDirectory")
+set objTrusts = objWMI.ExecQuery("select * " _
+                               &  " from Microsoft_DomainTrustStatus " _
+                               &  " where TrustIsOk = False ")
+if objTrusts.Count = 0 then
+   Wscript.Echo "There are no trust failures"
+else
+   WScript.Echo "Trust Failures:"
+   for each objTrust in objTrusts
+      Wscript.Echo " " &  objTrust.TrustedDomain &  " : " &  _
+                              objTrust.TrustStatusString
+      Wscript.Echo ""
+   next
+end if
+    
+    
+====================================
+get-WMIObject -query "select * from Microsoft_DomainTrustStatus where TrustIsOk =
+False" -namespace root/MicrosoftActiveDirectory
+    
+    
+====================================
+> netdom trust <TrustingDomain> /Domain:<TrustedDomain> /Reset /verbose
+    [/UserO:<TrustingDomainUser> /PasswordO:*]
+    [/UserD:<TrustedDomainUser> /PasswordD:*]
+    
+    
+====================================
+' This code resets the specified trust.
+' ------ SCRIPT CONFIGURATION ------
+' Set to the DNS or NetBIOS name for the Windows 2000,
+' Windows NT domain or Kerberos realm you want to reset the trust for.
+strTrustName = "<TrustToCheck>"
+' Set to the DNS name of the source or trusting domain.
+strDomain = "<TrustingDomain>"
+' ------ END CONFIGURATION ---------
+
+' Enable SC_RESET during trust enumerations
+set objTrustProv = GetObject("winmgmts:\\" &  strDomain &  _
+               "\root\MicrosoftActiveDirectory:Microsoft_TrustProvider=@")
+objTrustProv.TrustCheckLevel = 3 ' Enumerate with SC_RESET
+objTrustProv.Put_
+
+' Query the trust and print status information
+set objWMI = GetObject("winmgmts:\\" &  strDomain &  _
+                       "\root\MicrosoftActiveDirectory")
+set
+objTrusts = objWMI.ExecQuery("Select * " _
+                       &  " from Microsoft_DomainTrustStatus " _
+                       &  " where TrustedDomain = '" &  strTrustName &  "'" )
+for each objTrust in objTrusts
+    Wscript.Echo objTrust.TrustedDomain
+    Wscript.Echo " TrustedAttributes: " &  objTrust.TrustAttributes
+    Wscript.Echo " TrustedDCName: "     &  objTrust.TrustedDCName
+    Wscript.Echo " TrustedDirection: "  &  objTrust.TrustDirection
+    Wscript.Echo " TrustIsOk: "         &  objTrust.TrustIsOK
+    Wscript.Echo " TrustStatus: "       &  objTrust.TrustStatus
+    Wscript.Echo " TrustStatusString: " &  objTrust.TrustStatusString
+    Wscript.Echo " TrustType: "         &  objTrust.TrustType
+    Wscript.Echo ""
+next
+    
+    
+====================================
+$localDom = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$strRemoteDom = 'treyresearch.net'
+$remoteCon = New-Object
+System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain',$strRemoteDom,
+$strRemoteUser,$strRemotePass)
+$remoteDom =
+[System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($remoteCon)
+$localDom.RepairTrustRelationship($remoteDom)
+    
+    
+====================================
+$localFor = [System.DirectoryServices.ActiveDirectory.Forest]::getCurrentForest()
+$strRemoteFor = 'treyresearch.net'
+$remoteCon = New-Object
+System.DirectoryServices.ActiveDirectory.DirectoryContext('Forest',$strRemoteDom,
+$strRemoteUser,$strRemotePass)
+$remoteFor =
+[System.DirectoryServices.ActiveDirectory.Forest]::GetForest($remoteCon)
+$localFor.RepairTrustRelationship($remoteFor)
+    
+    
+====================================
+> netdom trust <TrustingDomain> /Domain:<TrustedDomain> /Remove /verbose
+   [/UserO:<TrustingDomainUser> /PasswordO:*]
+   [/UserD:<TrustedDomainUser> /PasswordD:*]
+    
+    
+====================================
+> adfind -b cn=<Trusted Domain>,cn=system,<Domain DN> -dsq | admod -rm
+> adfind -b cn=<TrustName>$,cn=users,<Domain DN> -dsq | admod -rm
+    
+    
+====================================
+' This code deletes a trust in the specified domain.
+' ------ SCRIPT CONFIGURATION ------
+' Set to the DNS or NetBIOS name for the Windows 2000,
+' Windows NT domain or Kerberos realm trust you want to delete.
+strTrustName = "<TrustName>"
+' Set to the DNS name of the source or trusting domain
+strDomain = "<DomainDNSName>"
+' ------ END CONFIGURATION ---------
+
+set objRootDSE = GetObject("LDAP://" &  strDomain &  "/RootDSE")
+set objTrust = GetObject("LDAP://cn=System," &  _
+                         objRootDSE.Get("defaultNamingContext") )
+objTrust.Delete "trustedDomain", "cn=" &  strTrustName
+set objTrustUser = GetObject("LDAP://cn=Users," &  _
+                             objRootDSE.Get("defaultNamingContext") )
+objTrustUser.Delete "trustedDomain", "cn=" &  strTrustName &  "$"
+WScript.Echo "Successfully deleted trust for " &  strTrustName
+    
+    
+====================================
+$localDom = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$strRemoteDom = 'treyresearch.net'
+$strRemoteUser = 'Administrator'
+$strRemotePass = 'P@ssw0rd'
+$remoteCon = New-Object
+System.DirectoryServices.ActiveDirectory.DirectoryContext('Domain',$strRemoteDom,
+$strRemoteUser,$strRemotePass)
+$remoteDom =
+[System.DirectoryServices.ActiveDirectory.Domain]::GetDomain($remoteCon)
+$localDom = DeleteTrustRelationship($remoteDom)
+    
+    
+====================================
+> netdom trust <TrustingDomain> /Domain:<TrustedDomain> /EnableSIDHistory:No
+   [/UserO:<TrustingDomainUser> /PasswordO:*]
+   [/UserD:<TrustedDomainUser> /PasswordD:*]
+    
+    
+====================================
+$dom = [System.DirectoryServices.Activedirectory.Domain]::getCurrentDomain()
+$dom.GetSidFilteringStatus('treyresearch.net')
+    
+    
+====================================
+$dom = [System.DirectoryServices.Activedirectory.Domain]::getCurrentDomain()
+$dom.SetSidFilteringStatus('treyresearch.net', $true)
+    
+    
+====================================
+> netdom trust <TrustingDomain> /Domain:<TrustedDomain> /Quarantine:Yes
+   [/UserO:<TrustingDomainUser> /PasswordO:*]
+   [/UserD:<TrustedDomainUser> /PasswordD:*]
+    
+    
+====================================
+> netdom trust <TrustingDomain> /Domain:<TrustedDomain> /SelectiveAUTH:Yes
+   [/UserO:<TrustingDomainUser> /PasswordO:*]
+   [/UserD:<TrustedDomainUser> /PasswordD:*]
+    
+    
+====================================
+$dom = [System.DirectoryServices.ActiveDirectory.Domain]::getCurrentDomain()
+$dom.GetSelectiveAuthenticationStatus('treyresearch.net')
+    
+    
+====================================
+$dom.SetSelectiveAuthenticationStatus('treyresearch.net', $true)
+$dom.SetSelectiveAuthenticationStatus('treyresearch.net', $false)
+    
+    
+====================================
+> ntdsutil "sec acc man" "co to se <DomainControllerName" "check dup sid" q q
+    
+    
+====================================
+Duplicate SID check completed successfully. Check dupsid.log for any duplicates
+    
+    
+====================================
+> ntdsutil "sec acc man" "co to se <DomainControllerName>" "clean dup sid" q q
+    
+    
+====================================
+Duplicate SID cleanup completed successfully. Check dupsid.log for any duplicate
+    
+    
+====================================
+dn: cn=computer-display,cn=409,cn=DisplaySpecifiers,
+    cn=Configuration, <ForestRootDN>
+changetype: modify
+add: attributeDisplayNames
+attributeDisplayNames: operatingSystemServicePack,Operating System Service Pack
+-
+    
+    
+====================================
+> ldifde -v -i -f modify_display_specifiers.ldf
+    
+    
+====================================
+> adfind -config -rb cn=computer-display,cn=409,cn=DisplaySpecifiers | admod
+"attributeDisplayNames:+:operatingSystemServicePack,Operating System Service Pack"
+    
+    
+====================================
+' The following script will append a new value to the
+' US English display specifiers
+'---------- SCRIPT CONFIGURATION ------------------
+  Const ADS_PROPERTY_APPEND = 3
+  strForestRoot = "<ForestRootDN>" ' i.e., "dc=adatum,dc=com"
+' --------- END CONFIGURATION ---------------------\
+
+strObjectDN = "cn=computer-display,cn=409,cn=displayspecifiers," &  _
+              "cn=configuration," &  strForestRoot
+set objObject = GetObject("LDAP://" &  strObjectDN)
+objObject.PutEx ADS_PROPERTY_APPEND, _
+  "attributeDisplayNames", Array("operatingSystemServicePackLevel, " &  _
+  "Operating System Service Pack Level")
+objObject.setInfo
+
+WScript.Echo "Script completed successfully!"
+    
+    
+==================
